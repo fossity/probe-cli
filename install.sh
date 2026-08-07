@@ -63,6 +63,11 @@ fi
 gunzip -c "$tmp/probe.gz" > "$tmp/$BINARY_NAME" || die "could not decompress the download"
 chmod +x "$tmp/$BINARY_NAME"
 
+# curl does not set the quarantine flag, but clear it anyway in case the file arrived another way.
+if [ "$target_os" = "darwin" ] && command -v xattr >/dev/null 2>&1; then
+  xattr -d com.apple.quarantine "$tmp/$BINARY_NAME" 2>/dev/null || true
+fi
+
 # Verify the checksum when the release publishes one.
 if command -v shasum >/dev/null 2>&1 || command -v sha256sum >/dev/null 2>&1; then
   sums_url="${url%/*}/SHA256SUMS"

@@ -12,7 +12,7 @@
  * The scanoss winnowing worker is created with `new Worker(src, { eval: true })`, so there is no
  * separate worker file to ship — the whole scanner fits in the blob.
  */
-import { execFileSync } from 'child_process';
+import { execFileSync, spawnSync } from 'child_process';
 import { readFileSync, writeFileSync, copyFileSync, mkdirSync, chmodSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
@@ -66,6 +66,13 @@ const outName = `${brand.binaryName}-${pkg.version}-${targetOs}-${arch}${suffix}
 const outPath = path.join(binDir, outName);
 copyFileSync(nodeBinary, outPath);
 
+// The official Node binary is signed. Injecting the blob invalidates that signature, and macOS
+// refuses to execute a binary whose signature is invalid — on Apple Silicon it is killed on sight.
+// Strip it first, then re-sign below. This is ad-hoc signing: no certificate, no Apple account.
+if (targetOs === 'darwin' && process.platform === 'darwin') {
+  spawnSync('codesign', ['--remove-signature', outPath], { stdio: 'inherit' });
+}
+
 const postject = path.join(root, 'node_modules/postject/dist/cli.js');
 if (!existsSync(postject)) {
   console.error('postject is not installed: npm install');
@@ -84,11 +91,15 @@ execFileSync(process.execPath, postjectArgs, { stdio: 'inherit' });
 
 if (targetOs !== 'win32') chmodSync(outPath, 0o755);
 
+// Ad-hoc signature, required for the binary to run at all on Apple Silicon. It asserts no identity,
+// so it needs no certificate and no Apple Developer account.
+if (targetOs === 'darwin' && process.platform === 'darwin') {
+  const signed = spawnSync('codesign', ['--sign', '-', '--force', outPath], { stdio: 'inherit' });
+  if (signed.status !== 0) {
+    console.error('codesign failed: the binary will not run on Apple Silicon');
+    process.exit(1);
+  }
+  execFileSync('codesign', ['--verify', '--verbose', outPath], { stdio: 'inherit' });
+}
+
 console.log(`\n${outPath}`);
-console.log(
-  targetOs === 'darwin'
-    ? 'Sign and notarize before distributing: codesign --sign "Developer ID Application: ..." --options runtime'
-    : targetOs === 'win32'
-      ? 'Sign before distributing: signtool sign /fd SHA256 /tr <timestamp-url> ...'
-      : 'Ready to distribute.',
-);

@@ -52,6 +52,21 @@ npm install -g @fossity/probe-cli    # or install it permanently
 **Or download a binary directly** from the [releases page](https://github.com/fossity/probe-cli/releases)
 — one file per platform, `gunzip` and run. Verify it against the published `SHA256SUMS`.
 
+### Unsigned binaries
+
+The binaries carry no Developer ID or Authenticode certificate. What that means in practice:
+
+- **The install scripts above are unaffected.** macOS attaches its quarantine flag in the _browser_,
+  not in `curl`, and Windows marks downloads the same way, so neither `curl | sh` nor `irm | iex`
+  triggers a warning.
+- **Downloading from the releases page in a browser does trigger one.** On macOS: right-click the
+  file and choose Open, or run `xattr -d com.apple.quarantine <file>`. On Windows: **More info** →
+  **Run anyway** on the SmartScreen prompt.
+- **`npx` is unaffected** — no operating-system gatekeeping applies to it at all.
+
+Check the published `SHA256SUMS` if you want to verify what you downloaded; it is a stronger check
+than a code signature, since it is produced by the same public build that produced the binary.
+
 ## Use
 
 Run it with no arguments for the guided flow: project information, obfuscation, then a summary to
