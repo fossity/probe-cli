@@ -22,7 +22,10 @@ jobs:
         include:
           - { runner: ubuntu-latest, target_os: linux, arch: x64, node_arch: linux-x64 }
           - { runner: ubuntu-24.04-arm, target_os: linux, arch: arm64, node_arch: linux-arm64 }
-          - { runner: macos-13, target_os: darwin, arch: x64, node_arch: darwin-x64 }
+          # Built on Apple Silicon rather than a macos-13 runner: GitHub's Intel images are being
+          # retired and jobs sit queued. The binary is the official darwin-x64 Node with the blob
+          # injected, and codesign signs a foreign-architecture Mach-O without complaint.
+          - { runner: macos-14, target_os: darwin, arch: x64, node_arch: darwin-x64 }
           - { runner: macos-14, target_os: darwin, arch: arm64, node_arch: darwin-arm64 }
     runs-on: ${{ matrix.runner }}
     steps:
