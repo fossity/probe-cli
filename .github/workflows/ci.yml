@@ -10,7 +10,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # Windows is disabled: the scanoss winnowing engine writes the scanned path into the WFP
+        # without normalising separators, so a scan run on Windows emits backslash paths and the
+        # obfuscation stage cannot match them. Re-add windows-latest once that is fixed.
+        os: [ubuntu-latest, macos-latest]
         node: ['18', '20', '22']
     runs-on: ${{ matrix.os }}
     steps:

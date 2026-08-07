@@ -17,12 +17,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # No Windows binary yet; see the note in ci.yml. install.ps1 stays in the repository so the
+        # platform can be restored by adding the runner back here.
         include:
           - { runner: ubuntu-latest, target_os: linux, arch: x64, node_arch: linux-x64 }
           - { runner: ubuntu-24.04-arm, target_os: linux, arch: arm64, node_arch: linux-arm64 }
           - { runner: macos-13, target_os: darwin, arch: x64, node_arch: darwin-x64 }
           - { runner: macos-14, target_os: darwin, arch: arm64, node_arch: darwin-arm64 }
-          - { runner: windows-latest, target_os: win32, arch: x64, node_arch: win-x64 }
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
