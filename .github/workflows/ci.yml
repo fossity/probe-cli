@@ -25,4 +25,6 @@ jobs:
       - run: npm run format:check
       # The suite builds the bundle and spawns it, so this also covers the artifact npx installs.
       - run: npm test
-      - run: node dist/probe.cjs formats
+      # The bundle is named after the binary, so read the name rather than repeating it.
+      - run: node "$(node -p "Object.values(require('./package.json').bin)[0]")" formats
+        shell: bash
