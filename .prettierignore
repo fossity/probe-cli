@@ -1,0 +1,7 @@
+# Build outputs
+dist/
+bin/
+node_modules/
+
+# Test fixtures are deliberately malformed or hand-formatted to exercise the parsers.
+test/fixtures/

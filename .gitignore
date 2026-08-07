@@ -1,0 +1,12 @@
+# Build outputs
+dist/
+bin/
+build/
+node_modules/
+
+# The sample project needs a vendored manifest to exercise the vendored-exclusion default.
+!test/fixtures/sample-project/node_modules/
+
+# Local artifacts
+*.fossity
+*.tsbuildinfo

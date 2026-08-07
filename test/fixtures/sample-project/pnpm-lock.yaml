@@ -1,0 +1,5 @@
+lockfileVersion: "6.0"
+dependencies:
+  react:
+    specifier: ^18.2.0
+    version: 18.2.0

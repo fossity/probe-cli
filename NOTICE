@@ -1,0 +1,38 @@
+Probe CLI
+=========
+
+Copyright (C) 2021-2026 Fossity LLC (https://fossity.com)
+
+This program is free software licensed under the GNU General Public License,
+version 2 only. See LICENSE for the full text.
+
+Parts of this program derive, in modified form, from Fossity Probe
+(https://github.com/fossity/probe), the discontinued desktop application, which
+was itself based on the SCANOSS Audit Workbench
+(https://github.com/scanoss/audit-workbench). Both are GPL-2.0 and the copyright
+in the derived material is held by Fossity LLC.
+
+Derived, in modified form, from Fossity Probe:
+
+    src/core/tree/          file tree, filtering and the banned list
+    src/core/project/       project directory and its metadata
+    src/core/pipeline/      the scanning, dependency, hint and packaging stages
+    src/core/cipher/        package encryption
+    src/core/obfuscation/   path obfuscation
+    src/core/types.ts       shared types
+    src/core/projectFiles.ts
+
+Written for this program:
+
+    src/core/lockfile/      lockfile parsers and their registry
+    src/core/ScanRunner.ts  pipeline orchestration
+    src/core/events.ts      scan progress events
+    src/cli/                command line interface and terminal wizard
+    src/runtime/            brand configuration, logging and scan options
+
+This program depends on the scanoss SDK
+(https://www.npmjs.com/package/scanoss), MIT licensed, for winnowing
+fingerprints and for the package manifest parsers it builds on. Remaining
+dependencies and their licences are listed in package.json.
+
+This program comes with ABSOLUTELY NO WARRANTY. See LICENSE for details.

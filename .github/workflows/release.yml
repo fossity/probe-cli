@@ -1,0 +1,152 @@
+name: release
+
+# Builds a standalone binary per platform and publishes them to a GitHub release, plus the npm
+# package for `npx`. Binaries are built from official nodejs.org builds: distro-packaged node is
+# often stripped and lacks the SEA sentinel fuse postject needs.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20.18.1'
+
+jobs:
+  binaries:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-latest, target_os: linux, arch: x64, node_arch: linux-x64 }
+          - { runner: ubuntu-24.04-arm, target_os: linux, arch: arm64, node_arch: linux-arm64 }
+          - { runner: macos-13, target_os: darwin, arch: x64, node_arch: darwin-x64 }
+          - { runner: macos-14, target_os: darwin, arch: arm64, node_arch: darwin-arm64 }
+          - { runner: windows-latest, target_os: win32, arch: x64, node_arch: win-x64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run brand:check
+      - run: npm run typecheck
+      - run: npm run format:check
+      - run: npm test
+
+      - name: Fetch the official Node binary to embed
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-${{ matrix.node_arch }}"
+          if [ "${{ matrix.target_os }}" = "win32" ]; then
+            curl -fsSL "$base.zip" -o node.zip
+            unzip -q node.zip
+            echo "NODE_BIN=$(pwd)/node-v${NODE_VERSION}-${{ matrix.node_arch }}/node.exe" >> "$GITHUB_ENV"
+          else
+            curl -fsSL "$base.tar.xz" -o node.tar.xz
+            tar xf node.tar.xz
+            echo "NODE_BIN=$(pwd)/node-v${NODE_VERSION}-${{ matrix.node_arch }}/bin/node" >> "$GITHUB_ENV"
+          fi
+
+      - name: Build the binary
+        shell: bash
+        env:
+          TARGET_ARCH: ${{ matrix.arch }}
+        run: node scripts/build-binary.mjs --node "$NODE_BIN" --target-os ${{ matrix.target_os }}
+
+      # Signing: without these the first run shows a Gatekeeper / SmartScreen warning. Skipped when
+      # the secrets are absent so forks can still build.
+      - name: Sign and notarize (macOS)
+        if: matrix.target_os == 'darwin' && env.MACOS_CERT_P12 != ''
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+          MACOS_SIGN_IDENTITY: ${{ secrets.MACOS_SIGN_IDENTITY }}
+          MACOS_NOTARY_PROFILE: ${{ secrets.MACOS_NOTARY_PROFILE }}
+        run: |
+          set -euo pipefail
+          echo "$MACOS_CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import cert.p12 -k build.keychain -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions build.keychain
+          bin=$(ls bin/*)
+          codesign --sign "$MACOS_SIGN_IDENTITY" --options runtime --timestamp --force "$bin"
+          ditto -c -k --keepParent "$bin" notarize.zip
+          xcrun notarytool submit notarize.zip --keychain-profile "$MACOS_NOTARY_PROFILE" --wait
+          codesign --verify --verbose "$bin"
+
+      - name: Sign (Windows)
+        if: matrix.target_os == 'win32' && env.WINDOWS_CERT_PFX != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERT_PFX: ${{ secrets.WINDOWS_CERT_PFX }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          [IO.File]::WriteAllBytes("cert.pfx", [Convert]::FromBase64String($env:WINDOWS_CERT_PFX))
+          $bin = (Get-ChildItem bin | Select-Object -First 1).FullName
+          & signtool sign /f cert.pfx /p $env:WINDOWS_CERT_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $bin
+
+      - name: Smoke-test the binary
+        shell: bash
+        run: |
+          bin=$(ls bin/* | head -1)
+          "$bin" --version
+          "$bin" formats > /dev/null
+          "$bin" deps test/fixtures/sample-project
+
+      - name: Compress and name the asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          src=$(ls bin/* | head -1)
+          name="$(node -p "require('./brand.config.json').binaryName")-${{ matrix.target_os }}-${{ matrix.arch }}"
+          if [ "${{ matrix.target_os }}" = "win32" ]; then name="$name.exe"; fi
+          gzip -9 -c "$src" > "$name.gz"
+          if command -v sha256sum >/dev/null; then sha256sum "$name.gz" > "$name.gz.sha256"; else shasum -a 256 "$name.gz" > "$name.gz.sha256"; fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target_os }}-${{ matrix.arch }}
+          path: |
+            *.gz
+            *.sha256
+
+  publish:
+    needs: binaries
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - run: npm ci
+      - uses: actions/download-artifact@v4
+        with: { path: assets, merge-multiple: true }
+
+      - name: Collect checksums
+        run: cat assets/*.sha256 | sed 's|assets/||' > assets/SHA256SUMS
+
+      - name: Publish the GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            assets/*.gz
+            assets/SHA256SUMS
+          generate_release_notes: true
+
+      - name: Publish to npm (enables npx)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          if [ -n "$NODE_AUTH_TOKEN" ]; then npm publish --provenance --access public; else echo "NPM_TOKEN not set, skipping"; fi

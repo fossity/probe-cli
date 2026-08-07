@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+# Shell scripts must keep LF endings even on Windows checkouts, or the installer will not run.
+*.sh text eol=lf
+# PowerShell is happier with CRLF.
+*.ps1 text eol=crlf
+
+# Lock files and fixtures are not worth diffing.
+package-lock.json linguist-generated=true
+test/fixtures/** linguist-vendored=true

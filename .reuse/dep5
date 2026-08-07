@@ -1,0 +1,12 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Probe CLI
+Upstream-Contact: Fossity LLC <hello@fossity.com>
+Source: https://github.com/fossity/probe-cli
+
+Files: *
+Copyright: 2021-2026 Fossity LLC (fossity.com)
+License: GPL-2.0-only
+Comment: Source files carry SPDX headers. This paragraph covers the files that
+ cannot: configuration, test fixtures and generated lock files. Parts of
+ src/core/ derive from Fossity Probe, which is also GPL-2.0 and whose copyright
+ is held by the same entity; NOTICE records which parts.
