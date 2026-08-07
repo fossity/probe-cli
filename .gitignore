@@ -10,3 +10,21 @@ node_modules/
 # Local artifacts
 *.fossity
 *.tsbuildinfo
+
+# Credentials must never be committed. Nothing here is expected to exist; these rules exist so that
+# an accidental `npm login`, a local .env or a stray certificate cannot be staged by `git add -A`.
+.env
+.env.*
+!.env.example
+.npmrc
+.netrc
+*.pem
+*.p12
+*.pfx
+*.key
+*.keystore
+*.jks
+id_rsa*
+id_ed25519*
+secrets.json
+credentials.json
