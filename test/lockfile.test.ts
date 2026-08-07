@@ -369,6 +369,9 @@ describe('resilience', () => {
     ]);
     expect(stats.failures.length).toBe(1);
     expect(stats.failures[0].file).toContain('poetry.lock');
+    // Parser libraries append the offending source and a caret; the summary prints one line per file.
+    expect(stats.failures[0].error).not.toContain('\n');
+    expect(stats.failures[0].error.length).toBeLessThanOrEqual(160);
     expect(files.map((f) => path.basename(f.file))).toEqual(['Cargo.lock']);
   });
 });

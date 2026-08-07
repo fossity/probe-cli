@@ -58,7 +58,7 @@ export function depsCommand(): Command {
       const width = Math.max(...all.map((f) => f.file.length));
       process.stdout.write('\n');
       for (const entry of all.sort((a, b) => a.file.localeCompare(b.file))) {
-        const tag = entry.source === 'lockfile' ? pc.cyan('+lockfile') : pc.dim(' desktop ');
+        const tag = entry.source === 'lockfile' ? pc.cyan('lockfile') : pc.dim('  sdk   ');
         process.stdout.write(
           `  ${tag}  ${entry.file.padEnd(width)}  ${String(entry.purls.length).padStart(4)} purls\n`,
         );

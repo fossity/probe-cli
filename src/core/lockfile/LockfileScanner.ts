@@ -107,6 +107,17 @@ export interface LockfileScanStats {
   totalPurls: number;
 }
 
+/**
+ * Collapses a parser error to a single line.
+ *
+ * Parser libraries commonly append the offending source with a caret pointing at the column, which
+ * is useful in a stack trace and ruinous in a one-line-per-file summary.
+ */
+function oneLine(message: string): string {
+  const collapsed = message.replace(/\s+/g, ' ').trim();
+  return collapsed.length > 160 ? `${collapsed.slice(0, 157)}...` : collapsed;
+}
+
 function globMatch(basename: string, pattern: string): boolean {
   if (!pattern.includes('*')) return basename === pattern;
   const re = new RegExp(
@@ -188,7 +199,7 @@ export class LockfileScanner {
         stats.perEcosystem[def.ecosystem] = (stats.perEcosystem[def.ecosystem] ?? 0) + result.purls.length;
         stats.totalPurls += result.purls.length;
       } catch (e: any) {
-        stats.failures.push({ file: filePath, error: e?.message ?? String(e) });
+        stats.failures.push({ file: filePath, error: oneLine(e?.message ?? String(e)) });
       }
     }
     return { files: results, stats };
