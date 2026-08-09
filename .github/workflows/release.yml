@@ -7,6 +7,7 @@ name: release
 on:
   push:
     tags: ['v*']
+  # Lets the publish be retried without cutting a new tag.
   workflow_dispatch:
 
 env:
@@ -112,6 +113,7 @@ jobs:
         run: cat assets/*.sha256 | sed 's|assets/||' > assets/SHA256SUMS
 
       - name: Publish the GitHub release
+        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -119,9 +121,29 @@ jobs:
             assets/SHA256SUMS
           generate_release_notes: true
 
+      # The npm error is surfaced as a workflow annotation as well as in the log, because job logs
+      # need admin rights to read while annotations do not.
       - name: Publish to npm (enables npx)
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          if [ -n "$NODE_AUTH_TOKEN" ]; then npm publish --provenance --access public; else echo "NPM_TOKEN not set, skipping"; fi
+          set -o pipefail
+
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::warning title=npm skipped::NPM_TOKEN is not set"
+            exit 0
+          fi
+
+          identity=$(npm whoami 2>&1 || true)
+          echo "::notice title=npm identity::$identity"
+
+          if npm publish --provenance --access public 2>&1 | tee /tmp/npm-publish.log; then
+            echo "::notice title=npm published::$(node -p "require('./package.json').name + '@' + require('./package.json').version")"
+            exit 0
+          fi
+
+          # Collapse the error to one line so it survives as an annotation.
+          reason=$(grep -aE "npm (error|ERR!)" /tmp/npm-publish.log | head -12 | tr '\n' ' ' | cut -c1-800)
+          echo "::error title=npm publish failed::${reason:-see the job log}"
+          exit 1
