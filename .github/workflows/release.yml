@@ -127,8 +127,13 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # Booleans only: whether GitHub has the secret at all, and its length. Never the value.
+          SECRET_PRESENT: ${{ secrets.NPM_TOKEN != '' }}
+          SECRETS_CONTEXT_WORKS: ${{ secrets.GITHUB_TOKEN != '' }}
         run: |
           set -o pipefail
+
+          echo "::notice title=secret check::NPM_TOKEN present=${SECRET_PRESENT} length=${#NODE_AUTH_TOKEN} secrets-context-works=${SECRETS_CONTEXT_WORKS} repo=${{ github.repository }} ref=${{ github.ref }}"
 
           if [ -z "$NODE_AUTH_TOKEN" ]; then
             # On a tag this is a failed release, not a skipped step: reporting success would leave a
