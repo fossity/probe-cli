@@ -9,6 +9,7 @@ import crypto from 'crypto';
 import AdmZip from 'adm-zip';
 import { ScanRunner } from '../src/core/ScanRunner';
 import { brand } from '../src/runtime/brand';
+import { getLogFile } from '../src/runtime/log';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'sample-project');
 let tmp: string;
@@ -126,6 +127,21 @@ describe('scan pipeline', () => {
     const wfp = zip.getEntry('winnowing.wfp')!.getData().toString('utf-8');
     expect(deps.toLowerCase()).not.toContain('sample');
     expect(wfp.toLowerCase()).not.toContain('sample');
+  });
+
+  it('releases the log file so the working directory can be removed', async () => {
+    // Windows refuses to delete a directory containing an open file, so a scan that leaves the log
+    // handle open cannot clean up after itself there.
+    const workspace = path.join(tmp, 'log-handle');
+    const outcome = await new ScanRunner().run(
+      request({ raw: true, output: path.join(tmp, 'loghandle'), workspaceDir: workspace }) as any,
+    );
+
+    expect(getLogFile()).toBeNull();
+    // The directory was kept because workspaceDir was given, so the log is there to inspect.
+    expect(fs.existsSync(path.join(outcome.projectPath, 'project.log'))).toBe(true);
+    // With the handle released, removing it must succeed on any platform.
+    expect(() => fs.rmSync(workspace, { recursive: true })).not.toThrow();
   });
 
   it('rejects a scan root that is not a directory', async () => {

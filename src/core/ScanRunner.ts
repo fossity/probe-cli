@@ -4,7 +4,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { log, setLogFile } from '../runtime/log';
+import { log, setLogFile, closeLogFile } from '../runtime/log';
 import { Project } from './project/Project';
 import { Metadata } from './project/Metadata';
 import { IndexPipelineTask } from './pipeline/IndexPipeline';
@@ -55,6 +55,16 @@ export interface ScanOutcome {
  * `PROBE_WORKSPACE` overrides it. An empty value counts as unset, so exporting the variable without
  * a value in a shell profile does not resolve the workspace to the filesystem root.
  */
+/**
+ * Removes a directory, retrying briefly.
+ *
+ * Windows can hold a file open for a moment after the writer is done with it — a virus scanner or
+ * the indexer reading what was just written — so a first attempt can fail where a second succeeds.
+ */
+async function removeDirectory(target: string): Promise<void> {
+  await fs.promises.rm(target, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+}
+
 export function defaultWorkspaceRoot(): string {
   return process.env.PROBE_WORKSPACE || path.join(os.homedir(), brand.workspaceDirName);
 }
@@ -96,14 +106,18 @@ export class ScanRunner {
 
     const outcome = await this.summarise(request, projectPath, packagePath, reviewPath);
 
+    // Release the log handle first: Windows will not remove a directory that holds an open file.
+    closeLogFile();
     if (!request.keepWorkspace && !request.workspaceDir) {
-      await fs.promises.rm(projectPath, { recursive: true, force: true });
+      await removeDirectory(projectPath);
     }
     return outcome;
   }
 
   private async createProject(request: ScanRequest, scanRoot: string, projectPath: string) {
-    await fs.promises.rm(projectPath, { recursive: true, force: true });
+    // A previous run may still hold the log file open in this directory.
+    closeLogFile();
+    await removeDirectory(projectPath);
     await fs.promises.mkdir(path.join(projectPath, AppDefaultValues.PROJECT.OUTPUT), { recursive: true });
 
     const metadata = new Metadata(request.name, scanRoot, projectPath);

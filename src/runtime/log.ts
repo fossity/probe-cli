@@ -32,6 +32,18 @@ export function setLogFile(filePath: string): void {
   }
 }
 
+/**
+ * Closes the log file.
+ *
+ * Windows refuses to delete a file that is still open, so the handle has to be released before the
+ * working directory can be removed. On other systems this is merely tidy.
+ */
+export function closeLogFile(): void {
+  stream?.end();
+  stream = null;
+  logFilePath = null;
+}
+
 /** Path currently being written to, or null when logging to memory only. */
 export function getLogFile(): string | null {
   return logFilePath;
