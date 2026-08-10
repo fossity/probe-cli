@@ -8,7 +8,6 @@ import path from 'path';
 import crypto from 'crypto';
 import AdmZip from 'adm-zip';
 import { ScanRunner } from '../src/core/ScanRunner';
-import { IndexTask } from '../src/core/pipeline/IndexTask';
 import { brand } from '../src/runtime/brand';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'sample-project');
@@ -32,15 +31,6 @@ beforeAll(() => {
 });
 afterAll(() => {
   fs.rmSync(tmp, { recursive: true, force: true });
-});
-
-describe('vendored detection', () => {
-  it('recognises dependency caches but not ordinary source paths', () => {
-    expect(IndexTask.isVendored('/node_modules/left-pad/package.json')).toBe(true);
-    expect(IndexTask.isVendored('/backend/vendor/composer/installed.json')).toBe(true);
-    expect(IndexTask.isVendored('/src/app/package.json')).toBe(false);
-    expect(IndexTask.isVendored('/my-vendored-code/package.json')).toBe(false);
-  });
 });
 
 describe('scan pipeline', () => {
@@ -78,24 +68,47 @@ describe('scan pipeline', () => {
     expect(outcome.dependencyPurls).toBeGreaterThan(outcome.lockfileStats!.totalPurls);
   });
 
-  it('excludes vendored manifests unless asked', async () => {
-    const off = await new ScanRunner().run(request({ raw: true, output: path.join(tmp, 'novendor') }) as any);
-    expect(readDepFiles(off.packagePath).some((f) => f.includes('node_modules'))).toBe(false);
-
-    const on = await new ScanRunner().run(
-      request({ raw: true, output: path.join(tmp, 'vendor'), options: { includeVendored: true } }) as any,
+  it('parses vendored manifests, which are part of what ships', async () => {
+    const outcome = await new ScanRunner().run(
+      request({ raw: true, output: path.join(tmp, 'vendor') }) as any,
     );
-    expect(readDepFiles(on.packagePath).some((f) => f.includes('node_modules'))).toBe(true);
+    expect(readDepFiles(outcome.packagePath).some((f) => f.includes('node_modules'))).toBe(true);
   });
 
-  it('honours --no-lockfiles, matching desktop behaviour', async () => {
-    const outcome = await new ScanRunner().run(
-      request({ raw: true, output: path.join(tmp, 'nolock'), options: { lockfiles: false } }) as any,
-    );
+  it('reads lockfiles unconditionally', async () => {
+    const outcome = await new ScanRunner().run(request({ raw: true, output: path.join(tmp, 'lock') }) as any);
     const files = readDepFiles(outcome.packagePath).map((f) => path.basename(f));
-    expect(files).not.toContain('pnpm-lock.yaml');
+    // Neither engine can be turned off: coverage is not a scan-time decision.
+    expect(files).toContain('pnpm-lock.yaml');
     expect(files).toContain('package-lock.json');
-    expect(outcome.lockfileStats).toBeNull();
+    expect(outcome.lockfileStats!.totalPurls).toBeGreaterThan(0);
+  });
+
+  it('leaves the package contents in the clear, matching the package byte for byte', async () => {
+    // The package is encrypted to the auditor's key, so this copy is the author's only way to check
+    // what they are sending. If it ever drifts from the payload it is worse than not existing.
+    const outcome = await new ScanRunner().run(
+      request({ raw: true, output: path.join(tmp, 'review') }) as any,
+    );
+
+    expect(outcome.reviewPath).toBe(`${outcome.packagePath}.contents`);
+    expect(fs.existsSync(outcome.reviewPath)).toBe(true);
+
+    const zip = new AdmZip(outcome.packagePath);
+    const packaged = zip.getEntries().filter((e) => !e.isDirectory);
+    expect(fs.readdirSync(outcome.reviewPath).sort()).toEqual(packaged.map((e) => e.entryName).sort());
+
+    for (const entry of packaged) {
+      const onDisk = fs.readFileSync(path.join(outcome.reviewPath, entry.entryName));
+      expect(onDisk.equals(entry.getData())).toBe(true);
+    }
+  });
+
+  it('never leaves the obfuscation dictionary in the reviewable copy', async () => {
+    const outcome = await new ScanRunner().run(
+      request({ raw: true, output: path.join(tmp, 'review-obf'), obfuscate: ['sample'] }) as any,
+    );
+    expect(fs.readdirSync(outcome.reviewPath)).not.toContain('obfuscationMapper.json');
   });
 
   it('fingerprints source files into the WFP', async () => {

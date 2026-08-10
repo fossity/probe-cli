@@ -11,7 +11,6 @@ import { PipelineTask, StageProperties } from './types';
 import { ScannerStage } from '../types';
 import { AppDefaultValues } from '../projectFiles';
 import { LockfileScanner, LockfileScanStats } from '../lockfile/LockfileScanner';
-import { scanOptions } from '../../runtime/options';
 import { ScanEvent, scanEvents } from '../events';
 
 /**
@@ -62,7 +61,7 @@ export class DependencyTask implements PipelineTask {
 
       const dependencies = await new LocalDependencies().search(allFiles);
 
-      if (scanOptions.lockfiles) {
+      {
         const lockfileScanner = new LockfileScanner();
         const { files: lockfileResults, stats } = await lockfileScanner.search(allFiles);
         this.stats = stats;
@@ -82,7 +81,7 @@ export class DependencyTask implements PipelineTask {
 
       dependencies.files.forEach((f) => {
         f.file = f.file.replace(rootPath, '');
-        if (scanOptions.redactRegistries) DependencyTask.redact(f);
+        DependencyTask.redact(f);
       });
 
       await fs.promises.writeFile(

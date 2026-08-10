@@ -14,7 +14,6 @@ import { FilterWFP } from '../tree/filters/FilterWFP';
 import { FilterDependency } from '../tree/filters/FilterDependency';
 import { ScanState } from '../types';
 import { LockfileScanner } from '../lockfile/LockfileScanner';
-import { scanOptions } from '../../runtime/options';
 
 export class IndexTask implements PipelineTask {
   constructor(private readonly project: Project) {}
@@ -43,58 +42,23 @@ export class IndexTask implements PipelineTask {
    *
    * The banned list marks `.lock` and `.json` files FILTERED because they carry no useful
    * fingerprint; flagging them here lifts them back out so the dependency stage can read them.
-   * Vendored copies are left filtered unless `--include-vendored`: a vendored package's manifest
-   * describes third-party code the parent project's own lockfile already accounts for.
+   *
+   * Vendored copies are included deliberately. A checked-in `node_modules` or `vendor` directory is
+   * part of what ships, so its manifests describe real components of the product; excluding them
+   * would understate the audit. They stay out of the fingerprint file either way, because the
+   * banned list filters those directories from the scan.
    */
   private async setDependenciesOnFileTree() {
-    const f = this.project.getTree().getRootFolder().getFiles();
-    const files = f.map((f) => f.path);
+    const files = this.project
+      .getTree()
+      .getRootFolder()
+      .getFiles()
+      .map((file: { path: string }) => file.path);
 
-    const scanossFiles = new LocalDependencies().filterFiles(files);
-    const lockFiles = new LockfileScanner().filterFiles(files);
+    const fromSdk = new LocalDependencies().filterFiles(files);
+    const fromLockfiles = new LockfileScanner().filterFiles(files);
 
-    const candidates = [...new Set([...scanossFiles, ...lockFiles])];
-    const dependenciesFiles = scanOptions.includeVendored
-      ? candidates
-      : candidates.filter((p) => !IndexTask.isVendored(p));
-
-    this.project.tree.addDependencies(dependenciesFiles);
-  }
-
-  /** Paths inside a dependency cache/checkout directory: their manifests describe third-party
-   *  packages already reported by the parent project's own lockfile. */
-  public static isVendored(relativePath: string): boolean {
-    const vendorDirs = new Set([
-      'node_modules',
-      'vendor',
-      'bower_components',
-      '.git',
-      '.svn',
-      '.hg',
-      'venv',
-      '.venv',
-      'virtualenv',
-      'site-packages',
-      '__pycache__',
-      'eggs',
-      'wheels',
-      'target',
-      'build',
-      'dist',
-      'out',
-      '.gradle',
-      '.m2',
-      '.cargo',
-      '.pub-cache',
-      'Pods',
-      'Carthage',
-      'packages',
-      'third_party',
-      'thirdparty',
-      '.tox',
-      '.nox',
-    ]);
-    return relativePath.split(/[\\/]/).some((segment) => vendorDirs.has(segment));
+    this.project.tree.addDependencies([...new Set([...fromSdk, ...fromLockfiles])]);
   }
 
   private createFileMap() {

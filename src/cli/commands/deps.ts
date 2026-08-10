@@ -7,7 +7,6 @@ import { Command } from 'commander';
 import pc from 'picocolors';
 import { LocalDependencies } from 'scanoss';
 import { LockfileScanner } from '../../core/lockfile/LockfileScanner';
-import { IndexTask } from '../../core/pipeline/IndexTask';
 
 /**
  * `probe deps <folder>` — dependency discovery on its own, with no fingerprinting and no package.
@@ -18,8 +17,6 @@ export function depsCommand(): Command {
     .description('list the dependencies found in manifests and lockfiles (no package written)')
     .argument('[folder]', 'folder to inspect', '.')
     .option('--json', 'print JSON instead of a table', false)
-    .option('--include-vendored', 'also parse manifests inside node_modules/vendor/...', false)
-    .option('--no-lockfiles', 'skip lockfiles; read only the manifests the scanoss SDK parses')
     .action(async (folder, opts) => {
       const root = path.resolve(folder ?? '.');
       if (!fs.existsSync(root)) {
@@ -27,18 +24,12 @@ export function depsCommand(): Command {
         process.exit(1);
       }
 
-      const files = walk(root, root, opts.includeVendored);
+      const files = walk(root, root);
       const scanoss = new LocalDependencies();
       const lockfiles = new LockfileScanner();
 
       const scanossResults = await scanoss.search(scanoss.filterFiles(files));
-      const lockfileResults =
-        opts.lockfiles !== false
-          ? await lockfiles.search(lockfiles.filterFiles(files))
-          : {
-              files: [],
-              stats: { perFile: {}, perEcosystem: {}, failures: [], unparseable: [], totalPurls: 0 },
-            };
+      const lockfileResults = await lockfiles.search(lockfiles.filterFiles(files));
 
       const all = [
         ...scanossResults.files.map((f: any) => ({ ...f, source: 'scanoss' })),
@@ -84,7 +75,7 @@ export function depsCommand(): Command {
     });
 }
 
-function walk(dir: string, root: string, includeVendored: boolean): string[] {
+function walk(dir: string, root: string): string[] {
   const out: string[] = [];
   let entries: fs.Dirent[];
   try {
@@ -95,9 +86,7 @@ function walk(dir: string, root: string, includeVendored: boolean): string[] {
   for (const entry of entries) {
     if (entry.isSymbolicLink()) continue;
     const full = path.join(dir, entry.name);
-    const relative = full.replace(root, '');
-    if (!includeVendored && IndexTask.isVendored(relative)) continue;
-    if (entry.isDirectory()) out.push(...walk(full, root, includeVendored));
+    if (entry.isDirectory()) out.push(...walk(full, root));
     else out.push(full);
   }
   return out;

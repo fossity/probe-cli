@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2021-2026 Fossity LLC (fossity.com)
 // SPDX-License-Identifier: GPL-2.0-only
 
+import path from 'path';
 import pc from 'picocolors';
 import { ScanEvent, scanEvents } from '../core/events';
 import { ScanOutcome } from '../core/ScanRunner';
@@ -124,6 +125,15 @@ export function printOutcome(outcome: ScanOutcome, opts: { raw?: boolean } = {})
   }
 
   process.stdout.write(`\n  ${pc.green('→')} ${pc.bold(outcome.packagePath)} ${pc.dim(`(${kb} KB)`)}\n`);
-  if (!opts.raw) process.stdout.write(`  ${pc.dim(`upload it at ${brand.uploadUrl}`)}\n`);
+
+  // The package is encrypted to the auditor's key, so its author cannot read it back. The copy left
+  // in the clear is the only way they can check what they are about to send.
+  process.stdout.write(`\n  ${pc.bold('Before you send it, read what is inside:')}\n`);
+  process.stdout.write(`    ${outcome.reviewPath}${path.sep}\n`);
+  process.stdout.write(
+    `    ${pc.dim('the same files the package contains: fingerprints, package URLs and counts')}\n`,
+  );
+
+  if (!opts.raw) process.stdout.write(`\n  ${pc.dim(`upload it at ${brand.uploadUrl}`)}\n`);
   process.stdout.write('\n');
 }

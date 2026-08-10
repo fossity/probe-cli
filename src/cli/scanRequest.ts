@@ -19,9 +19,6 @@ export interface ScanCommandOptions {
   ignoreSbom?: string;
   attach?: string[];
   obfuscate?: string;
-  lockfiles?: boolean;
-  includeVendored?: boolean;
-  keepRegistryUrls?: boolean;
   raw?: boolean;
   keepWorkspace?: boolean;
   workspace?: string;
@@ -83,11 +80,6 @@ export function buildScanRequest(folder: string, options: ScanCommandOptions): S
       software_composition_known_uri: options.sbom ? path.resolve(options.sbom) : undefined,
       software_composition_ignore_uri: options.ignoreSbom ? path.resolve(options.ignoreSbom) : undefined,
       software_composition_uri: options.attach?.map((file) => path.resolve(file)),
-    },
-    options: {
-      lockfiles: options.lockfiles !== false,
-      includeVendored: options.includeVendored ?? false,
-      redactRegistries: !options.keepRegistryUrls,
     },
   };
 

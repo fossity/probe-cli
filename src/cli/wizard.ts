@@ -72,19 +72,6 @@ export async function runWizard(defaults: { scanRoot?: string } = {}): Promise<S
     obfuscate = splitWords(String(words));
   }
 
-  const scanOpts = await p.multiselect({
-    message: 'Options',
-    required: false,
-    initialValues: ['lockfiles', 'redact'],
-    options: [
-      { value: 'lockfiles', label: 'Read lockfiles', hint: 'pnpm, poetry, Cargo, composer, ...' },
-      { value: 'redact', label: 'Strip registry URLs', hint: 'recommended for private registries' },
-      { value: 'vendored', label: 'Include vendored manifests', hint: 'node_modules, vendor, ...' },
-    ],
-  });
-  if (p.isCancel(scanOpts)) return cancel();
-  const selected = scanOpts as string[];
-
   const output = await p.text({
     message: `Where should the ${packageExtension} package be written?`,
     initialValue: path.join(process.cwd(), `${slug(String(name))}${packageExtension}`),
@@ -105,11 +92,6 @@ export async function runWizard(defaults: { scanRoot?: string } = {}): Promise<S
       opt_in_sms: false,
       default_license: String(license ?? '').trim(),
     },
-    options: {
-      lockfiles: selected.includes('lockfiles'),
-      redactRegistries: selected.includes('redact'),
-      includeVendored: selected.includes('vendored'),
-    },
   };
 
   p.note(
@@ -119,7 +101,6 @@ export async function runWizard(defaults: { scanRoot?: string } = {}): Promise<S
       `contact     ${request.projectInfo.contact?.email}`,
       `license     ${request.projectInfo.default_license || pc.dim('(none)')}`,
       `obfuscate   ${obfuscate.length ? obfuscate.join(', ') : pc.dim('(nothing)')}`,
-      `lockfiles   ${request.options?.lockfiles ? 'yes' : 'no'}`,
       `output      ${request.output}`,
     ].join('\n'),
     'Summary',

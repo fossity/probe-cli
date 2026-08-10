@@ -105,13 +105,11 @@ describe('deps', () => {
     expect(result.stdout).toMatch(/purls total/);
   });
 
-  it('finds nothing extra with --no-lockfiles', () => {
-    const withLockfiles = JSON.parse(cli(['deps', FIXTURE, '--json']).stdout);
-    const without = JSON.parse(cli(['deps', FIXTURE, '--json', '--no-lockfiles']).stdout);
-
-    expect(withLockfiles.stats.totalPurls).toBeGreaterThan(0);
-    expect(without.stats.totalPurls).toBe(0);
-    expect(without.files.length).toBeLessThan(withLockfiles.files.length);
+  it('reports both engines with no way to narrow them', () => {
+    const result = JSON.parse(cli(['deps', FIXTURE, '--json']).stdout);
+    expect(result.stats.totalPurls).toBeGreaterThan(0);
+    expect(result.files.some((f: any) => f.source === 'scanoss')).toBe(true);
+    expect(result.files.some((f: any) => f.source === 'lockfile')).toBe(true);
   });
 });
 

@@ -105,19 +105,24 @@ probe-cli scan . --email you@example.com --license MIT -o audit.fossity
 | `-o, --output <file>`  | where the package goes                                                               |
 | `-l, --license <spdx>` | default license of your own code                                                     |
 | `--obfuscate <words>`  | comma-separated words to strip from every path in the package                        |
-| `--no-lockfiles`       | skip lockfiles; read only the manifests the scanoss SDK parses                       |
-| `--include-vendored`   | also parse manifests inside `node_modules`, `vendor`, …                              |
-| `--keep-registry-urls` | keep registry/repository URLs (stripped by default)                                  |
 | `--sbom <file>`        | attach a known-components SBOM                                                       |
 | `--raw`                | write a plain `.zip` instead of an encrypted package, to review what you are sending |
 | `--json`               | machine-readable result, for CI                                                      |
 | `--verbose`            | mirror the scan log to stderr                                                        |
 
-Reviewing what you are about to send is one command:
+### Reviewing what you send
 
-```sh
-probe-cli scan . --email you@example.com --raw -o review.zip && unzip -l review.zip
+Every scan leaves the package contents in the clear next to the package itself:
+
 ```
+audit.fossity              the encrypted package, for the auditor
+audit.fossity.contents/    the same files, readable
+```
+
+The package is encrypted to the auditor's public key, so you cannot open it after it is written.
+That directory is how you check what leaves your machine — it is byte for byte what the package
+contains, and a test enforces that. Read `dependencies.json` and `winnowing.wfp` before you send
+anything.
 
 ## What the package contains
 
@@ -146,6 +151,9 @@ the lockfile formats it does not:
 | Apple              | `Podfile.lock`, `Package.resolved`, `Cartfile.resolved`                          |
 | Dart / Elixir / Go | `pubspec.yaml`, `pubspec.lock`, `mix.lock`, `Gopkg.lock`                         |
 
+Detection is not configurable: every scan runs both engines over every file, vendored directories
+included, because a checked-in `node_modules` is part of what ships. There is no flag to narrow it.
+
 `probe-cli formats` prints the live list. Two deliberate behaviours:
 
 - **Local packages are not reported.** `workspace:*`, `file:`, `link:`, path and git specifiers name
@@ -157,9 +165,9 @@ the lockfile formats it does not:
 
 ## Privacy
 
-Lockfiles routinely name internal packages and private registry hosts. By default any URL-shaped
-field is dropped from the dependency records before they are written, and package names still go
-through the obfuscation dictionary. Use `--keep-registry-urls` only when the auditor needs them.
+Lockfiles routinely name internal packages and private registry hosts, so any URL-shaped field is
+dropped from the dependency records before they are written, and package names go through the
+obfuscation dictionary when one is in use.
 
 The obfuscation dictionary (`obfuscationMapper.json`) is written to the working directory and is
 **not** included in the package — it is the key that maps obfuscated paths back to real ones, and it

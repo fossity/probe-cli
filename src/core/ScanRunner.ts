@@ -14,7 +14,6 @@ import { CipherTask } from './pipeline/CipherTask';
 import { AppDefaultValues } from './projectFiles';
 import { IProjectInfoMetadata } from './types';
 import { brand, packageExtension } from '../runtime/brand';
-import { setScanOptions, ScanOptions } from '../runtime/options';
 import { LockfileScanStats } from './lockfile/LockfileScanner';
 
 export interface ScanRequest {
@@ -33,11 +32,12 @@ export interface ScanRequest {
   raw?: boolean;
   /** Keep the working directory after a successful run. */
   keepWorkspace?: boolean;
-  options?: Partial<ScanOptions>;
 }
 
 export interface ScanOutcome {
   packagePath: string;
+  /** Directory holding the package contents in the clear, for the author to read before sending. */
+  reviewPath: string;
   projectPath: string;
   filesTotal: number;
   filesFingerprinted: number;
@@ -69,8 +69,6 @@ export class ScanRunner {
   private dependencyStats: LockfileScanStats | null = null;
 
   public async run(request: ScanRequest): Promise<ScanOutcome> {
-    setScanOptions(request.options ?? {});
-
     const scanRoot = path.resolve(request.scanRoot);
     if (!fs.existsSync(scanRoot) || !fs.statSync(scanRoot).isDirectory()) {
       throw new Error(`${scanRoot} is not a directory`);
@@ -91,8 +89,12 @@ export class ScanRunner {
 
     // Stage 3: package.
     const packagePath = await this.package(request, projectPath);
+    const reviewPath = await this.writeReviewCopy(
+      path.join(projectPath, AppDefaultValues.PROJECT.OUTPUT),
+      packagePath,
+    );
 
-    const outcome = await this.summarise(request, projectPath, packagePath);
+    const outcome = await this.summarise(request, projectPath, packagePath, reviewPath);
 
     if (!request.keepWorkspace && !request.workspaceDir) {
       await fs.promises.rm(projectPath, { recursive: true, force: true });
@@ -116,6 +118,20 @@ export class ScanRunner {
       path.join(projectPath, AppDefaultValues.PROJECT.OUTPUT, AppDefaultValues.PROJECT.OUTPUT_METADATA),
       JSON.stringify(request.projectInfo, null, 2),
     );
+  }
+
+  /**
+   * Writes the package contents beside the package, unencrypted.
+   *
+   * The package itself is encrypted to the auditor's key, so its author cannot open what they are
+   * about to send. Leaving the same files in the clear means the decision to send is an informed
+   * one: every byte in this directory is a byte in the package.
+   */
+  private async writeReviewCopy(outputDir: string, target: string): Promise<string> {
+    const reviewPath = `${target}.contents`;
+    await fs.promises.rm(reviewPath, { recursive: true, force: true });
+    await fs.promises.cp(outputDir, reviewPath, { recursive: true });
+    return reviewPath;
   }
 
   /** Zips the output folder, then encrypts it unless a plain archive was requested. */
@@ -149,6 +165,7 @@ export class ScanRunner {
     request: ScanRequest,
     projectPath: string,
     packagePath: string,
+    reviewPath: string,
   ): Promise<ScanOutcome> {
     const summary = this.project.getTree().getSummarize();
     let dependencyFiles = 0;
@@ -168,6 +185,7 @@ export class ScanRunner {
 
     return {
       packagePath,
+      reviewPath,
       projectPath,
       filesTotal: summary?.total ?? 0,
       filesFingerprinted: summary?.include ?? 0,

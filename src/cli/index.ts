@@ -60,9 +60,6 @@ export function buildProgram(): Command {
     .option('--ignore-sbom <file>', 'attach a list of components to ignore')
     .option('--attach <files...>', 'attach further software-composition files')
     .option('--obfuscate <words>', 'comma-separated words to strip from every path')
-    .option('--no-lockfiles', 'skip lockfiles; read only the manifests the scanoss SDK parses')
-    .option('--include-vendored', 'also parse manifests inside node_modules, vendor and similar', false)
-    .option('--keep-registry-urls', 'keep registry and repository URLs in the dependency data', false)
     .option('--raw', 'write a plain .zip instead of an encrypted package', false)
     .option('--keep-workspace', 'keep the intermediate working directory', false)
     .option('--workspace <dir>', 'working directory for intermediate artifacts')
@@ -125,7 +122,9 @@ async function execute(request: ScanRequest, output: OutputOptions): Promise<voi
     } else {
       printOutcome(outcome, { raw: request.raw });
       if (output.wizard) {
-        wizardOutro(`Send ${path.basename(outcome.packagePath)} to your auditor.`);
+        wizardOutro(
+          `Read ${path.basename(outcome.reviewPath)} before sending ${path.basename(outcome.packagePath)}.`,
+        );
       }
     }
   } finally {

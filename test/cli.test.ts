@@ -7,7 +7,6 @@ import os from 'os';
 import path from 'path';
 import { buildScanRequest, validateScanRequest, splitWords, slug, UsageError } from '../src/cli/scanRequest';
 import { buildProgram } from '../src/cli/index';
-import { setScanOptions, scanOptions, DEFAULT_SCAN_OPTIONS } from '../src/runtime/options';
 import { packageExtension } from '../src/runtime/brand';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'sample-project');
@@ -18,7 +17,6 @@ beforeAll(() => {
 });
 afterAll(() => {
   fs.rmSync(tmp, { recursive: true, force: true });
-  setScanOptions();
 });
 
 describe('splitWords', () => {
@@ -84,29 +82,6 @@ describe('buildScanRequest', () => {
     });
     expect(request.projectInfo.default_license).toBe('Apache-2.0');
     expect(request.projectInfo.software_composition).toBe('internal build tooling only');
-  });
-
-  it('enables lockfiles and redaction by default', () => {
-    const request = buildScanRequest(FIXTURE, {});
-    expect(request.options).toEqual({
-      lockfiles: true,
-      includeVendored: false,
-      redactRegistries: true,
-    });
-  });
-
-  it('translates the negated and inverted flags commander produces', () => {
-    // commander sets lockfiles:false for --no-lockfiles, and keepRegistryUrls:true for the opt-out.
-    const request = buildScanRequest(FIXTURE, {
-      lockfiles: false,
-      keepRegistryUrls: true,
-      includeVendored: true,
-    });
-    expect(request.options).toEqual({
-      lockfiles: false,
-      includeVendored: true,
-      redactRegistries: false,
-    });
   });
 
   it('splits the obfuscation word list', () => {
@@ -183,24 +158,18 @@ describe('platform guards', () => {
   });
 });
 
-describe('scan options', () => {
-  it('resets to the defaults between scans', () => {
-    setScanOptions({ lockfiles: false, includeVendored: true });
-    expect(scanOptions.lockfiles).toBe(false);
-
-    setScanOptions({ redactRegistries: false });
-    expect(scanOptions.lockfiles).toBe(DEFAULT_SCAN_OPTIONS.lockfiles);
-    expect(scanOptions.includeVendored).toBe(DEFAULT_SCAN_OPTIONS.includeVendored);
-    expect(scanOptions.redactRegistries).toBe(false);
-
-    setScanOptions();
-    expect(scanOptions).toEqual(DEFAULT_SCAN_OPTIONS);
-  });
-});
-
 describe('command tree', () => {
   const program = buildProgram();
   const names = program.commands.map((command) => command.name());
+
+  it('offers no switch that narrows dependency detection', () => {
+    // Coverage is not a user decision: every engine runs on every scan.
+    const scan = program.commands.find((command) => command.name() === 'scan')!;
+    const flags = scan.options.map((option) => option.long);
+    expect(flags).not.toContain('--no-lockfiles');
+    expect(flags).not.toContain('--include-vendored');
+    expect(flags).not.toContain('--keep-registry-urls');
+  });
 
   it('exposes the documented commands', () => {
     expect(names).toEqual(expect.arrayContaining(['scan', 'deps', 'formats', 'workspace']));
