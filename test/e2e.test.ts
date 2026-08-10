@@ -8,7 +8,9 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { spawnSync, SpawnSyncReturns } from 'child_process';
+import { spawnSync, spawn, SpawnSyncReturns } from 'child_process';
+import http from 'http';
+import { AddressInfo } from 'net';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
@@ -21,6 +23,26 @@ const BUNDLE = path.join(ROOT, `dist/${brandConfig.binaryName}.cjs`);
 const FIXTURE = path.join(__dirname, 'fixtures', 'sample-project');
 
 let tmp: string;
+
+/**
+ * Runs the CLI without blocking this process.
+ *
+ * Required whenever the test also serves the request the CLI makes: `spawnSync` blocks the event
+ * loop, so an in-process mock server could never answer and both sides would wait for ever.
+ */
+function cliAsync(args: string[], env: Record<string, string> = {}): Promise<SpawnSyncReturns<string>> {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, [BUNDLE, ...args], {
+      cwd: tmp,
+      env: { ...process.env, ...env, FORCE_COLOR: '0', NO_COLOR: '1' },
+    });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (c) => (stdout += c));
+    child.stderr.on('data', (c) => (stderr += c));
+    child.on('close', (status) => resolve({ status, stdout, stderr } as SpawnSyncReturns<string>));
+  });
+}
 
 /** Runs the bundled CLI, exactly as an installed user would. */
 function cli(args: string[], env: Record<string, string> = {}): SpawnSyncReturns<string> {
@@ -204,6 +226,96 @@ describe('scan', () => {
     const result = cli(['scan', path.join(tmp, 'absent'), '--email', 'dev@example.com']);
     expect(result.status).toBe(1);
     expect(result.stderr).toMatch(/does not exist/);
+  });
+});
+
+describe('upload', () => {
+  /** A stand-in for the intake endpoint. Tests never contact the real one. */
+  async function withServer<T>(
+    handler: (req: http.IncomingMessage, res: http.ServerResponse, body: Buffer) => void,
+    run: (endpoint: string) => Promise<T> | T,
+  ): Promise<T> {
+    const server = http.createServer((req, res) => {
+      const chunks: Buffer[] = [];
+      req.on('data', (c) => chunks.push(c));
+      req.on('end', () => handler(req, res, Buffer.concat(chunks)));
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      return await run(`http://127.0.0.1:${(server.address() as AddressInfo).port}/api/upload`);
+    } finally {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+  }
+
+  /** Points the CLI at a local endpoint by overriding the brand file. */
+  function brandPointingAt(endpoint: string, name: string): string {
+    const file = path.join(tmp, name);
+    fs.writeFileSync(file, JSON.stringify({ ...brandConfig, uploadApiUrl: endpoint }));
+    return file;
+  }
+
+  it('does not upload unless asked', async () => {
+    let called = false;
+    await withServer(
+      (_req, res) => {
+        called = true;
+        res.end(JSON.stringify({ ok: true }));
+      },
+      async (endpoint) => {
+        const result = await cliAsync(
+          ['scan', FIXTURE, '--email', 'dev@example.com', '-o', path.join(tmp, 'no-upload'), '--json'],
+          { PROBE_BRAND_CONFIG: brandPointingAt(endpoint, 'brand-noupload.json') },
+        );
+        expect(result.status).toBe(0);
+        expect(called).toBe(false);
+      },
+    );
+  });
+
+  it('uploads the package when --upload is given, and says so', async () => {
+    let filename = '';
+    let bytes = 0;
+    const outcome = await withServer(
+      (_req, res, body) => {
+        filename =
+          (body
+            .subarray(0, 400)
+            .toString('utf-8')
+            .match(/filename="([^"]+)"/) ?? [])[1] ?? '';
+        bytes = body.length;
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+      },
+      (endpoint) =>
+        cliAsync(['scan', FIXTURE, '--email', 'dev@example.com', '-o', path.join(tmp, 'sent'), '--upload'], {
+          PROBE_BRAND_CONFIG: brandPointingAt(endpoint, 'brand-upload.json'),
+        }),
+    );
+
+    expect(outcome.status).toBe(0);
+    expect(filename).toBe(`sent${brandConfig.packageExtension}`);
+    expect(bytes).toBeGreaterThan(0);
+    expect(outcome.stdout).toMatch(/uploaded/);
+  });
+
+  it('keeps the package and explains itself when the upload fails', async () => {
+    const output = path.join(tmp, 'failed-upload');
+    const result = await withServer(
+      (_req, res) => {
+        res.writeHead(413, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'File too large.' }));
+      },
+      (endpoint) =>
+        cliAsync(['scan', FIXTURE, '--email', 'dev@example.com', '-o', output, '--upload'], {
+          PROBE_BRAND_CONFIG: brandPointingAt(endpoint, 'brand-failupload.json'),
+        }),
+    );
+
+    expect(result.stderr).toMatch(/File too large/);
+    // The scan itself succeeded; a failed submission must not destroy its result.
+    expect(fs.existsSync(`${output}${brandConfig.packageExtension}`)).toBe(true);
+    expect(result.stderr).toMatch(/still at/);
   });
 });
 

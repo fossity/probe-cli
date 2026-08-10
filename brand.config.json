@@ -12,6 +12,7 @@
   "configDirName": "fossity-probe",
   "websiteUrl": "https://www.fossity.com",
   "uploadUrl": "https://www.fossity.com/#upload",
+  "uploadApiUrl": "https://www.fossity.com/api/upload",
   "supportEmail": "hello@fossity.com",
   "issuesUrl": "https://github.com/fossity/probe-cli/issues",
   "publicKeyPem": "-----BEGIN PUBLIC KEY-----\nMIIBITANBgkqhkiG9w0BAQEFAAOCAQ4AMIIBCQKCAQBvVUeT1ZaIwfF+v8HFbGas\n02Y9HKa1189S1CZqFTqb0hPom0sMQA4n8XsNjvhV3HYVijlYCG5MVd6Qg1r2KZAa\nmWZHFkXgCaJCJZiEBXIWfCcJIri+GFXf98bOx2fV0QhmfwkzlEDOtPPy314sZIqW\nRwDDGvJbBycEtx9CqR9//wL6EyA0d3+rC5/36pMY2KZirlYO0jIoh7wKaOUkMNfA\nkuwVnWPxchTNK7Kkxa55pBgJEPNAjVrRbeZgkXivAI1VYnuF96sUDbeG0DCQxm9x\nb2TNE384T0XWl3uJt05ThSw75DrC4C1CCZ0zGb1EwV4qBxwoemMoRMUPaFC/Objz\nAgMBAAE=\n-----END PUBLIC KEY-----\n",

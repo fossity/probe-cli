@@ -11,6 +11,7 @@ import { setVerbose } from '../runtime/log';
 import { ScanRunner, ScanRequest, defaultWorkspaceRoot } from '../core/ScanRunner';
 import { Reporter, printOutcome } from './reporter';
 import { runWizard, wizardOutro } from './wizard';
+import { confirmUpload, runUpload } from './upload';
 import { depsCommand } from './commands/deps';
 import { formatsCommand } from './commands/formats';
 import { buildScanRequest, validateScanRequest, ScanCommandOptions, UsageError } from './scanRequest';
@@ -28,6 +29,8 @@ interface OutputOptions {
   json?: boolean;
   /** Print the closing message in the wizard's style. */
   wizard?: boolean;
+  /** Upload without asking. Set by --upload, or by answering yes in the wizard. */
+  upload?: boolean;
 }
 
 /**
@@ -61,6 +64,7 @@ export function buildProgram(): Command {
     .option('--attach <files...>', 'attach further software-composition files')
     .option('--obfuscate <words>', 'comma-separated words to strip from every path')
     .option('--raw', 'write a plain .zip instead of an encrypted package', false)
+    .option('--upload', 'send the package when the scan finishes, without asking', false)
     .option('--keep-workspace', 'keep the intermediate working directory', false)
     .option('--workspace <dir>', 'working directory for intermediate artifacts')
     .option('--json', 'print the result as JSON', false)
@@ -68,7 +72,7 @@ export function buildProgram(): Command {
     .action(async (folder: string, options: ScanCommandOptions & OutputOptions, command: Command) => {
       applyGlobalOptions(command);
       const request = buildScanRequest(folder, options);
-      await execute(request, { quiet: options.quiet, json: options.json });
+      await execute(request, { quiet: options.quiet, json: options.json, upload: options.upload });
     });
 
   program.addCommand(depsCommand());
@@ -121,15 +125,30 @@ async function execute(request: ScanRequest, output: OutputOptions): Promise<voi
       process.stdout.write(`${outcome.packagePath}\n`);
     } else {
       printOutcome(outcome, { raw: request.raw });
-      if (output.wizard) {
-        wizardOutro(
-          `Read ${path.basename(outcome.reviewPath)} before sending ${path.basename(outcome.packagePath)}.`,
-        );
-      }
+    }
+
+    // Nothing leaves the machine unless this returns true.
+    if (!request.raw && (await wantsUpload(outcome.packagePath, output))) {
+      await runUpload(outcome.packagePath);
+    } else if (output.wizard) {
+      wizardOutro(
+        `Read ${path.basename(outcome.reviewPath)} before sending ${path.basename(outcome.packagePath)}.`,
+      );
     }
   } finally {
     reporter.done();
   }
+}
+
+/**
+ * Whether to upload: `--upload` says yes outright, an interactive run asks, and anything else
+ * (piped output, `--json`, `--quiet`, no terminal) declines rather than prompting into the void.
+ */
+async function wantsUpload(packagePath: string, output: OutputOptions): Promise<boolean> {
+  if (output.upload) return true;
+  if (output.json || output.quiet) return false;
+  if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
+  return confirmUpload(packagePath);
 }
 
 /**

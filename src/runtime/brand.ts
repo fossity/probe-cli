@@ -26,7 +26,10 @@ export interface Brand {
   workspaceDirName: string;
   configDirName: string;
   websiteUrl: string;
+  /** Page a person can drop the package on, from any machine. */
   uploadUrl: string;
+  /** Endpoint the CLI posts the package to when asked. */
+  uploadApiUrl: string;
   supportEmail: string;
   issuesUrl: string;
   /** GitHub owner/name the install scripts download releases from. */
