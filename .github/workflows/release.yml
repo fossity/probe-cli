@@ -131,6 +131,12 @@ jobs:
           set -o pipefail
 
           if [ -z "$NODE_AUTH_TOKEN" ]; then
+            # On a tag this is a failed release, not a skipped step: reporting success would leave a
+            # version tagged and released on GitHub but absent from the registry.
+            if [ "${{ github.ref_type }}" = "tag" ]; then
+              echo "::error title=npm publish failed::NPM_TOKEN is empty or missing. Check Settings > Secrets and variables > Actions > Repository secrets."
+              exit 1
+            fi
             echo "::warning title=npm skipped::NPM_TOKEN is not set"
             exit 0
           fi
