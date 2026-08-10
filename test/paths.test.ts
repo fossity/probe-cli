@@ -125,7 +125,10 @@ describe('obfuscation over Windows-shaped input', () => {
 
     // Once the WFP is normalised, both hosts feed the same text through, so both produce the same
     // package: that equivalence is the point of the fix.
-    const fromWindows = await run(normaliseWfpPaths('file=8a1c,1024,\\src\\acme\\main.c'), path.join(tmp, 'win'));
+    const fromWindows = await run(
+      normaliseWfpPaths('file=8a1c,1024,\\src\\acme\\main.c'),
+      path.join(tmp, 'win'),
+    );
     const fromPosix = await run('file=8a1c,1024,/src/acme/main.c', path.join(tmp, 'posix'));
 
     expect(fromWindows).toBe(fromPosix);

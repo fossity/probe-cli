@@ -75,7 +75,8 @@ export async function runUpload(packagePath: string): Promise<boolean> {
     return true;
   } catch (error) {
     if (isTTY) process.stdout.write(`\r${' '.repeat(lastLine)}\r`);
-    const reason = error instanceof UploadError ? error.message : ((error as Error)?.message ?? String(error));
+    const reason =
+      error instanceof UploadError ? error.message : ((error as Error)?.message ?? String(error));
     process.stderr.write(`  ${pc.red('✖')} upload failed: ${reason}\n`);
     process.stderr.write(`  The package is still at ${packagePath}\n`);
     process.stderr.write(`  You can submit it from any machine at ${brand.uploadUrl}\n\n`);

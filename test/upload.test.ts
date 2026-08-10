@@ -98,9 +98,9 @@ describe('uploadPackage', () => {
   });
 
   it('explains an unreachable host rather than hanging', async () => {
-    await expect(
-      uploadPackage(packagePath, 'http://127.0.0.1:9/api/upload'),
-    ).rejects.toThrow(/refused|could not be resolved/);
+    await expect(uploadPackage(packagePath, 'http://127.0.0.1:9/api/upload')).rejects.toThrow(
+      /refused|could not be resolved/,
+    );
   });
 
   it('refuses a file it cannot read', async () => {
