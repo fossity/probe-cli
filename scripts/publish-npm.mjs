@@ -12,19 +12,24 @@
  *   npm run release:npm            # token from /root/.npm-token or $NPM_TOKEN_FILE
  */
 import { execFileSync } from 'child_process';
-import { readFileSync, writeFileSync, rmSync, mkdtempSync } from 'fs';
+import { readFileSync, writeFileSync, rmSync, mkdtempSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import os from 'os';
 import path from 'path';
 
 const root = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
-const tokenFile = process.env.NPM_TOKEN_FILE ?? '/root/.npm-token';
+/** First existing candidate wins; $NPM_TOKEN_FILE overrides all of them. */
+const tokenFile =
+  process.env.NPM_TOKEN_FILE ??
+  ['/root/npm.secret', '/root/.npm-token', path.join(os.homedir(), '.npm-token')].find((candidate) =>
+    existsSync(candidate),
+  );
 
 let token;
 try {
   token = readFileSync(tokenFile, 'utf-8').trim();
 } catch {
-  console.error(`No token at ${tokenFile}.`);
+  console.error(`No npm token found (looked at ${tokenFile ?? '/root/npm.secret and ~/.npm-token'}).`);
   console.error("Create it with:  printf '%s' 'npm_...' > " + tokenFile + ' && chmod 600 ' + tokenFile);
   process.exit(1);
 }
