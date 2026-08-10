@@ -103,6 +103,23 @@ describe('uploadPackage', () => {
     );
   });
 
+  it('releases the file handle before it settles', async () => {
+    // Windows keeps a file locked until its handle closes, so a caller that moves or deletes the
+    // package straight after an upload fails unless the handle is gone by then.
+    const before = process.report?.getReport() as any;
+    const openBefore = before?.libuv?.filter((h: any) => h.type === 'file')?.length ?? 0;
+
+    await uploadPackage(packagePath, endpoint).catch(() => undefined);
+    await uploadPackage(packagePath, 'http://127.0.0.1:9/api/upload').catch(() => undefined);
+
+    const after = process.report?.getReport() as any;
+    const openAfter = after?.libuv?.filter((h: any) => h.type === 'file')?.length ?? 0;
+    expect(openAfter).toBeLessThanOrEqual(openBefore);
+
+    // The package must be removable immediately, which is what fails on Windows when it is not.
+    expect(() => fs.rmSync(packagePath)).not.toThrow();
+  });
+
   it('refuses a file it cannot read', async () => {
     await expect(uploadPackage(path.join(tmp, 'missing.fossity'), endpoint)).rejects.toThrow(
       /could not be read/,

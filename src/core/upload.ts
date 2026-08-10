@@ -76,11 +76,23 @@ export async function uploadPackage(
   return new Promise<UploadResult>((resolve, reject) => {
     const file = fs.createReadStream(filePath);
 
-    /** Releases the file handle. Windows keeps the file locked until it is closed. */
-    const fail = (error: Error) => {
+    /**
+     * Settles once the file handle is really gone.
+     *
+     * `destroy()` only schedules the close, so settling immediately hands control back while the
+     * descriptor is still open. On Windows that leaves the package locked, and a caller that tries
+     * to move or delete it straight afterwards fails.
+     */
+    const settle = (action: () => void) => {
+      if (file.closed || file.destroyed) {
+        action();
+        return;
+      }
+      file.once('close', action);
       file.destroy();
-      reject(error);
     };
+
+    const fail = (error: Error) => settle(() => reject(error));
 
     const request = transport.request(
       {
@@ -108,12 +120,11 @@ export async function uploadPackage(
             // A non-JSON body means something other than the API answered: a proxy, an error page.
           }
 
-          file.destroy();
           if (status === 200 && payload.ok) {
-            resolve({ status, message: 'accepted' });
+            settle(() => resolve({ status, message: 'accepted' }));
             return;
           }
-          reject(new UploadError(payload.error ?? `the server answered ${status || 'nothing'}`));
+          fail(new UploadError(payload.error ?? `the server answered ${status || 'nothing'}`));
         });
       },
     );
