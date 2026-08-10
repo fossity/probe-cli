@@ -16,7 +16,15 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { toPosixPath, splitPathParts, joinPathParts, normaliseWfpPaths } from '../src/core/paths';
+import {
+  toPosixPath,
+  splitPathParts,
+  joinPathParts,
+  normaliseWfpPaths,
+  splitPathSegments,
+} from '../src/core/paths';
+import Folder from '../src/core/tree/Folder';
+import File from '../src/core/tree/File';
 import { ObfuscationModule } from '../src/core/obfuscation/ObfuscationModule';
 import { PathRewriter } from '../src/core/obfuscation/PathRewriter';
 import { WfpPathExtractor, DependencyPathExtractor } from '../src/core/obfuscation/pathExtractors';
@@ -132,5 +140,46 @@ describe('obfuscation over Windows-shaped input', () => {
     const fromPosix = await run('file=8a1c,1024,/src/acme/main.c', path.join(tmp, 'posix'));
 
     expect(fromWindows).toBe(fromPosix);
+  });
+});
+
+describe('tree traversal over native separators', () => {
+  it('splits segments the same way whichever separator built the path', () => {
+    expect(splitPathSegments('\\src\\acme')).toEqual(splitPathSegments('/src/acme'));
+  });
+
+  /**
+   * The regression this covers: dependency files are flagged by walking the tree and matching paths
+   * against each folder. That comparison split on a hardcoded '/', so on a host whose separator is
+   * '\' no folder ever matched, the walk reached no files, and a scan reported no dependencies at
+   * all — while fingerprinting, which does not use this path, carried on working.
+   *
+   * `Tree.build` splits on the host separator, so a whole Windows tree cannot be built here. These
+   * assemble the nodes directly, which is exactly where the comparison lives.
+   */
+  it.each([
+    ['posix', '/src', '/src/pnpm-lock.yaml'],
+    ['windows', '\\src', '\\src\\pnpm-lock.yaml'],
+  ])('flags a nested dependency file (%s paths)', (_name, folderPath, filePath) => {
+    const folder = new Folder(folderPath, 'src');
+    const file = new File(filePath, 'pnpm-lock.yaml');
+    folder.addChild(file);
+
+    folder.addDependency(filePath);
+
+    expect(file.isDependency()).toBe(true);
+  });
+
+  it.each([
+    ['posix', '/', '/package.json'],
+    ['windows', '\\', '\\package.json'],
+  ])('does not flag files outside the folder being walked (%s paths)', (_name, _root, filePath) => {
+    const folder = new Folder(filePath.slice(0, 1) + 'other', 'other');
+    const file = new File(filePath, 'package.json');
+    folder.addChild(file);
+
+    folder.addDependency(filePath);
+
+    expect(file.isDependency()).toBe(false);
   });
 });

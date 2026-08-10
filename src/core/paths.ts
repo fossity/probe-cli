@@ -58,3 +58,12 @@ export function normaliseWfpPaths(wfp: string): string {
     (_line, md5, size, filePath) => `file=${md5},${size},${toPosixPath(filePath)}`,
   );
 }
+
+/**
+ * Splits a path into its segments, accepting either separator.
+ *
+ * Tree paths are held in the host's native form, so comparisons between them must not assume one.
+ */
+export function splitPathSegments(value: string): string[] {
+  return toPosixPath(value).split('/');
+}

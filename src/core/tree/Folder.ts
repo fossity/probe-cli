@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 import Node, { NodeStatus } from './Node';
+import { splitPathSegments } from '../paths';
 import { FileExclusion } from './exclusions';
 import { Filter } from './filters/Filter';
 
@@ -205,14 +206,20 @@ export default class Folder extends Node {
     this.setStatusOnClassnameAs(this.status);
   }
 
-  // Returns true only if my path is contained in the path (parameter)
-  private checkMyPath(path: string): boolean {
-    if (!path.includes(this.getPath())) return false;
-    // Only if first filter is passed.
-    const myPathExploded = this.getPath().split('/');
-    const pathExploded = path.split('/');
-    for (let i = 0; i < myPathExploded.length; i += 1) {
-      if (myPathExploded[i] !== pathExploded[i]) return false;
+  /**
+   * True when `candidate` lies within this folder, so a traversal knows whether to descend.
+   *
+   * Split on either separator: the tree holds paths in the host's native form, and comparing on a
+   * single hardcoded separator matches nothing on a platform that uses the other one — every
+   * descent fails and the traversal silently visits no files.
+   */
+  private checkMyPath(candidate: string): boolean {
+    if (!candidate.includes(this.getPath())) return false;
+
+    const mine = splitPathSegments(this.getPath());
+    const theirs = splitPathSegments(candidate);
+    for (let i = 0; i < mine.length; i += 1) {
+      if (mine[i] !== theirs[i]) return false;
     }
     return true;
   }
