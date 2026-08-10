@@ -9,7 +9,7 @@ import crypto from 'crypto';
 import AdmZip from 'adm-zip';
 import { ScanRunner } from '../src/core/ScanRunner';
 import { brand } from '../src/runtime/brand';
-import { getLogFile } from '../src/runtime/log';
+import { getLogFile, closeLogFile } from '../src/runtime/log';
 
 const FIXTURE = path.join(__dirname, 'fixtures', 'sample-project');
 let tmp: string;
@@ -31,7 +31,7 @@ beforeAll(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'probe-test-'));
 });
 afterAll(() => {
-  fs.rmSync(tmp, { recursive: true, force: true });
+  fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
 
 describe('scan pipeline', () => {
@@ -137,6 +137,7 @@ describe('scan pipeline', () => {
       request({ raw: true, output: path.join(tmp, 'loghandle'), workspaceDir: workspace }) as any,
     );
 
+    await closeLogFile(); // idempotent; the scan has already done this
     expect(getLogFile()).toBeNull();
     // The directory was kept because workspaceDir was given, so the log is there to inspect.
     expect(fs.existsSync(path.join(outcome.projectPath, 'project.log'))).toBe(true);

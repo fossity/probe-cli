@@ -74,6 +74,14 @@ export async function uploadPackage(
   const tail = Buffer.from(`${CRLF}--${boundary}--${CRLF}`);
 
   return new Promise<UploadResult>((resolve, reject) => {
+    const file = fs.createReadStream(filePath);
+
+    /** Releases the file handle. Windows keeps the file locked until it is closed. */
+    const fail = (error: Error) => {
+      file.destroy();
+      reject(error);
+    };
+
     const request = transport.request(
       {
         protocol: url.protocol,
@@ -100,6 +108,7 @@ export async function uploadPackage(
             // A non-JSON body means something other than the API answered: a proxy, an error page.
           }
 
+          file.destroy();
           if (status === 200 && payload.ok) {
             resolve({ status, message: 'accepted' });
             return;
@@ -116,20 +125,19 @@ export async function uploadPackage(
           : error.code === 'ECONNREFUSED'
             ? `${url.host} refused the connection`
             : (error.message ?? String(error));
-      reject(new UploadError(reason));
+      fail(new UploadError(reason));
     });
 
     request.write(head);
 
     let sent = 0;
-    const file = fs.createReadStream(filePath);
     file.on('data', (chunk) => {
       sent += chunk.length;
       onProgress?.({ sent, total: stats.size });
     });
     file.on('error', (error) => {
       request.destroy();
-      reject(new UploadError(`${filePath} could not be read: ${error.message}`));
+      fail(new UploadError(`${filePath} could not be read: ${error.message}`));
     });
     file.on('end', () => {
       request.end(tail);

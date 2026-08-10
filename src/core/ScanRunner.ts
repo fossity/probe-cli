@@ -107,7 +107,7 @@ export class ScanRunner {
     const outcome = await this.summarise(request, projectPath, packagePath, reviewPath);
 
     // Release the log handle first: Windows will not remove a directory that holds an open file.
-    closeLogFile();
+    await closeLogFile();
     if (!request.keepWorkspace && !request.workspaceDir) {
       await removeDirectory(projectPath);
     }
@@ -116,7 +116,7 @@ export class ScanRunner {
 
   private async createProject(request: ScanRequest, scanRoot: string, projectPath: string) {
     // A previous run may still hold the log file open in this directory.
-    closeLogFile();
+    await closeLogFile();
     await removeDirectory(projectPath);
     await fs.promises.mkdir(path.join(projectPath, AppDefaultValues.PROJECT.OUTPUT), { recursive: true });
 

@@ -38,10 +38,17 @@ export function setLogFile(filePath: string): void {
  * Windows refuses to delete a file that is still open, so the handle has to be released before the
  * working directory can be removed. On other systems this is merely tidy.
  */
-export function closeLogFile(): void {
-  stream?.end();
+export function closeLogFile(): Promise<void> {
+  const closing = stream;
   stream = null;
   logFilePath = null;
+
+  if (!closing) return Promise.resolve();
+  // end() only queues the close; the handle lives until the stream says otherwise.
+  return new Promise((resolve) => {
+    closing.once('close', () => resolve());
+    closing.end();
+  });
 }
 
 /** Path currently being written to, or null when logging to memory only. */
