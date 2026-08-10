@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 
 import fs from 'fs';
+import path from 'path';
 import { log } from '../../runtime/log';
 import * as readline from 'readline';
-import path from 'path';
 import { PathObfuscator } from './PathObfuscator';
 import { ObfuscationDTO } from './types';
 import { PathExtractor } from './pathExtractors';
+import { splitPathParts, joinPathParts } from '../paths';
 
 /**
  * Rewrites the paths inside a generated artifact, line by line.
@@ -93,15 +94,21 @@ export class PathRewriter<Adapter extends PathObfuscator> {
     });
   }
 
-  /** Replaces the path embedded in one line, keeping the rest of the line byte-for-byte. */
+  /**
+   * Replaces the path embedded in one line, keeping the rest of the line byte-for-byte.
+   *
+   * The replacement targets the exact substring the extractor found, so it cannot miss through a
+   * separator or normalisation difference: whatever the line holds is what gets replaced. The
+   * extension is preserved, because it tells the auditor what kind of file was fingerprinted
+   * without identifying it.
+   */
   private obfuscateLine(line: string): string {
     const pathToProcess = this.pathExtractor.extractPath(line);
     if (!pathToProcess) return line;
 
-    const parsed = path.parse(pathToProcess);
-    const obfuscatedStem = this.obfuscation.adapt(path.join(parsed.dir, parsed.name));
-    const obfuscatedPath = parsed.ext !== '' ? `${obfuscatedStem}${parsed.ext}` : obfuscatedStem;
+    const { dir, name, ext } = splitPathParts(pathToProcess);
+    const obfuscatedPath = `${this.obfuscation.adapt(joinPathParts(dir, name))}${ext}`;
 
-    return line.replace(path.normalize(pathToProcess), path.normalize(obfuscatedPath));
+    return line.replace(pathToProcess, obfuscatedPath);
   }
 }

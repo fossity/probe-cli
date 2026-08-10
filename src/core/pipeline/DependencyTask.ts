@@ -11,6 +11,7 @@ import { PipelineTask, StageProperties } from './types';
 import { ScannerStage } from '../types';
 import { AppDefaultValues } from '../projectFiles';
 import { LockfileScanner, LockfileScanStats } from '../lockfile/LockfileScanner';
+import { toPosixPath } from '../paths';
 import { ScanEvent, scanEvents } from '../events';
 
 /**
@@ -80,7 +81,7 @@ export class DependencyTask implements PipelineTask {
       }
 
       dependencies.files.forEach((f) => {
-        f.file = f.file.replace(rootPath, '');
+        f.file = toPosixPath(f.file.replace(rootPath, ''));
         DependencyTask.redact(f);
       });
 

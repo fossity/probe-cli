@@ -32,10 +32,14 @@ Scan complete
 
 Pick whichever is easiest — none of them needs a checkout.
 
-**Standalone binary (no Node required)** — Linux and macOS:
+**Standalone binary (no Node required)**
 
 ```sh
+# Linux / macOS
 curl -fsSL https://raw.githubusercontent.com/fossity/probe-cli/main/install.sh | sh
+
+# Windows (PowerShell)
+irm https://raw.githubusercontent.com/fossity/probe-cli/main/install.ps1 | iex
 ```
 
 **Already have Node 18+?**
@@ -52,25 +56,15 @@ npm install -g @fossity/probe-cli    # or install it permanently
 
 The binaries carry no Developer ID or Authenticode certificate. What that means in practice:
 
-- **The install script above is unaffected.** macOS attaches its quarantine flag in the _browser_,
-  not in `curl`, so `curl | sh` triggers no warning.
-- **Downloading from the releases page in a browser does trigger one.** Right-click the file and
-  choose Open, or run `xattr -d com.apple.quarantine <file>`.
+- **The install scripts above are unaffected.** macOS attaches its quarantine flag in the _browser_,
+  not in `curl`, and Windows marks downloads the same way, so neither one-liner triggers a warning.
+- **Downloading from the releases page in a browser does trigger one.** On macOS, right-click the
+  file and choose Open, or run `xattr -d com.apple.quarantine <file>`. On Windows, choose
+  **More info** then **Run anyway**.
 - **`npx` is unaffected** — no operating-system gatekeeping applies to it at all.
 
 Check the published `SHA256SUMS` if you want to verify what you downloaded; it is a stronger check
 than a code signature, since it is produced by the same public build that produced the binary.
-
-### Windows is not supported yet
-
-There is no Windows binary, and `npx` on Windows is not recommended. The winnowing engine writes
-scanned paths into the fingerprint file without normalising separators, so a scan run on Windows
-produces backslash paths, and path obfuscation cannot match them — it would appear to succeed while
-leaving the words it was asked to remove in place. Rather than risk that, `--obfuscate` refuses to
-run on Windows.
-
-`install.ps1` and the tracking issue remain in the repository; the platform will be restored once
-the path handling is fixed and CI can prove it.
 
 ## Use
 
@@ -123,6 +117,9 @@ The package is encrypted to the auditor's public key, so you cannot open it afte
 That directory is how you check what leaves your machine — it is byte for byte what the package
 contains, and a test enforces that. Read `dependencies.json` and `winnowing.wfp` before you send
 anything.
+
+Paths inside the package always use forward slashes, whichever platform produced it, so a scan of
+the same tree yields the same record on Windows, macOS and Linux.
 
 ## What the package contains
 

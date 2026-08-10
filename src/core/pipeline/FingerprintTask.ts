@@ -10,6 +10,7 @@ import { Project } from '../project/Project';
 import { ScanEvent, scanEvents } from '../events';
 import { PipelineTask, StageProperties } from './types';
 import { AppDefaultValues } from '../projectFiles';
+import { normaliseWfpPaths } from '../paths';
 
 /** Name of an optional file in the scan root listing components the auditor should ignore. */
 const IGNORE_FILE = 'scanoss-ignore.json';
@@ -43,6 +44,7 @@ export class FingerprintTask implements PipelineTask {
 
     this.start();
     await this.fingerprint.start(this.buildScannerInput());
+    await this.normalisePaths();
 
     this.project.metadata.setScannerState(ScanState.FINISHED);
     this.project.metadata.save();
@@ -50,18 +52,36 @@ export class FingerprintTask implements PipelineTask {
     return true;
   }
 
+  /**
+   * Rewrites the scanned paths in the WFP to use forward slashes.
+   *
+   * The winnowing engine writes the path exactly as the host produced it, so a scan on Windows would
+   * otherwise record backslashes: a different description of the same tree, and one the obfuscation
+   * stage could not match. Done here so every later stage sees one form.
+   */
+  private async normalisePaths(): Promise<void> {
+    if (path.sep === '/') return; // already POSIX; leave any legitimate backslash alone
+
+    const wfpPath = this.wfpPath();
+    const wfp = await fs.promises.readFile(wfpPath, 'utf-8');
+    await fs.promises.writeFile(wfpPath, normaliseWfpPaths(wfp));
+  }
+
+  /** Location of the fingerprint file inside the project directory. */
+  private wfpPath(): string {
+    return path.join(
+      this.project.getMyPath(),
+      AppDefaultValues.PROJECT.OUTPUT,
+      AppDefaultValues.PROJECT.WINNOWING_WFP,
+    );
+  }
+
   /** Creates the scanner and turns its events into pipeline progress. */
   private start(): void {
     this.fingerprint = new Fingerprint();
     // Held on the project so an interrupted scan can be aborted.
     this.project.scanner = this.fingerprint;
-    this.fingerprint.setFingerprintPath(
-      path.join(
-        this.project.getMyPath(),
-        AppDefaultValues.PROJECT.OUTPUT,
-        AppDefaultValues.PROJECT.WINNOWING_WFP,
-      ),
-    );
+    this.fingerprint.setFingerprintPath(this.wfpPath());
 
     let { processedFiles } = this.project;
 

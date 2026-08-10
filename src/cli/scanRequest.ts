@@ -93,16 +93,6 @@ export function buildScanRequest(folder: string, options: ScanCommandOptions): S
  * @throws UsageError with a message meant for the terminal.
  */
 export function validateScanRequest(request: ScanRequest): void {
-  // Path obfuscation cannot match the backslash paths the winnowing engine writes on Windows, so it
-  // would report success while leaving the words it was asked to remove in the package. Refusing is
-  // the only safe behaviour until the path handling is normalised.
-  if (process.platform === 'win32' && request.obfuscate.length > 0) {
-    throw new UsageError(
-      'path obfuscation is not supported on Windows yet: it would silently fail to remove the words. ' +
-        'Run the scan on Linux or macOS, or omit --obfuscate.',
-    );
-  }
-
   if (!fs.existsSync(request.scanRoot)) {
     throw new UsageError(`${request.scanRoot} does not exist`);
   }

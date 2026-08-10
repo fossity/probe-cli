@@ -141,23 +141,6 @@ describe('validateScanRequest', () => {
   });
 });
 
-describe('platform guards', () => {
-  const platform = process.platform;
-  afterAll(() => Object.defineProperty(process, 'platform', { value: platform }));
-
-  it('refuses to obfuscate on Windows rather than failing silently', () => {
-    Object.defineProperty(process, 'platform', { value: 'win32' });
-    const request = buildScanRequest(FIXTURE, { email: 'dev@example.com', obfuscate: 'acme' });
-    expect(() => validateScanRequest(request)).toThrow(/not supported on Windows/);
-  });
-
-  it('allows a scan without obfuscation on Windows', () => {
-    Object.defineProperty(process, 'platform', { value: 'win32' });
-    const request = buildScanRequest(FIXTURE, { email: 'dev@example.com' });
-    expect(() => validateScanRequest(request)).not.toThrow();
-  });
-});
-
 describe('command tree', () => {
   const program = buildProgram();
   const names = program.commands.map((command) => command.name());
