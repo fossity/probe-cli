@@ -41,6 +41,7 @@
     "build": "node scripts/build.mjs",
     "prepare": "node scripts/build.mjs",
     "build:binary": "node scripts/build-binary.mjs",
+    "release:npm": "node scripts/publish-npm.mjs",
     "dev": "node scripts/dev.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
