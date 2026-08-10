@@ -87,6 +87,20 @@ export function buildProgram(): Command {
   return program;
 }
 
+/**
+ * Exits quietly when output is piped into a command that stops reading, such as `head` or a `less`
+ * the user quits. Node's default is to throw EPIPE, which prints a stack trace over what the user
+ * was reading.
+ */
+function ignoreClosedOutput(): void {
+  for (const stream of [process.stdout, process.stderr]) {
+    stream.on('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EPIPE') process.exit(0);
+      throw error;
+    });
+  }
+}
+
 /** Copies the root `--verbose` flag into the logger before a subcommand runs. */
 function applyGlobalOptions(command: Command): void {
   const root = command.parent ?? command;
@@ -126,6 +140,7 @@ async function execute(request: ScanRequest, output: OutputOptions): Promise<voi
  * are reported as a single line, with the stack trace kept for `--verbose`.
  */
 export async function run(argv: string[] = process.argv): Promise<number> {
+  ignoreClosedOutput();
   const args = argv.slice(2);
   const program = buildProgram();
 

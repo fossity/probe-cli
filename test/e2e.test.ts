@@ -61,6 +61,17 @@ describe('help and version', () => {
     expect(result.stdout).toContain('Usage:');
   });
 
+  it('exits quietly when its output is piped to a command that stops reading', () => {
+    // Regression: EPIPE printed a stack trace over whatever the reader was showing.
+    const result = spawnSync('sh', ['-c', `"${process.execPath}" "${BUNDLE}" formats | head -2`], {
+      encoding: 'utf-8',
+      env: { ...process.env, NO_COLOR: '1' },
+      timeout: 60_000,
+    });
+    expect(result.status).toBe(0);
+    expect(result.stderr).not.toMatch(/EPIPE|Error:/);
+  });
+
   it('rejects an unknown command with a hint', () => {
     const result = cli(['frobnicate']);
     expect(result.status).not.toBe(0);
