@@ -1,6 +1,6 @@
 {
   "name": "@fossity/probe-cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Captures fingerprints and dependency data from your code, without shipping your code.",
   "license": "GPL-2.0-only",
   "author": "Fossity LLC (https://fossity.com)",
