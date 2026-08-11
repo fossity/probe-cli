@@ -36,6 +36,8 @@ export interface Brand {
   repository?: string;
   /** npm package name; defaults to `<binaryName>-cli` in brand:apply. */
   npmPackageName?: string;
+  /** Short unscoped npm name publishing the same build, so `npx <name>` stays brief. */
+  npmAliasName?: string;
   publicKeyPem: string;
   accentColor: string;
 }

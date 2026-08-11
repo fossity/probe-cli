@@ -45,9 +45,11 @@ irm https://raw.githubusercontent.com/fossity/probe-cli/main/install.ps1 | iex
 **Already have Node 18+?**
 
 ```sh
-npx @fossity/probe-cli@latest scan .        # runs without installing anything
-npm install -g @fossity/probe-cli           # or install it permanently
+npx fossity@latest scan .            # runs without installing anything
+npm install -g @fossity/probe-cli    # or install it permanently
 ```
+
+`fossity` publishes the same build as `@fossity/probe-cli`, under a shorter name.
 
 Keep the `@latest`. Without a version, `npx` reuses whatever copy it happens to have cached and never
 asks the registry, so an old build can keep running long after a newer one is out. If you have
