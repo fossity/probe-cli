@@ -5,7 +5,6 @@ import path from 'path';
 import pc from 'picocolors';
 import { ScanEvent, scanEvents } from '../core/events';
 import { ScanOutcome } from '../core/ScanRunner';
-import { brand } from '../runtime/brand';
 
 const isTTY = process.stdout.isTTY && !process.env.CI;
 
@@ -133,7 +132,6 @@ export function printOutcome(outcome: ScanOutcome, opts: { raw?: boolean } = {})
   process.stdout.write(
     `    ${pc.dim('the same files the package contains: fingerprints, package URLs and counts')}\n`,
   );
-
-  if (!opts.raw) process.stdout.write(`\n  ${pc.dim(`upload it at ${brand.uploadUrl}`)}\n`);
+  process.stdout.write(`    ${pc.dim('Note: fingerprints cannot be reversed to the code.')}\n`);
   process.stdout.write('\n');
 }

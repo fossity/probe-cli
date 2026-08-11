@@ -51,9 +51,14 @@ npm install -g @fossity/probe-cli    # or install it permanently
 
 `fossity` publishes the same build as `@fossity/probe-cli`, under a shorter name.
 
-Keep the `@latest`. Without a version, `npx` reuses whatever copy it happens to have cached and never
-asks the registry, so an old build can keep running long after a newer one is out. If you have
-already been bitten by that, `rm -rf ~/.npm/_npx` clears it.
+`npx` resolves the newest version from the registry on each run, so the bare form is current too;
+`@latest` only makes that explicit. Two cases do reuse an older copy: asking for one by version
+(`npx fossity@0.1.0` keeps using 0.1.0, as it should), and running offline, where `npx` falls back
+to its cache. `rm -rf ~/.npm/_npx` clears it if you ever need to.
+
+An installed copy is different: neither the binary nor a global `npm install` updates itself. Check
+with `probe-cli --version` against the [latest release](https://github.com/fossity/probe-cli/releases),
+and re-run the install command to update.
 
 **Or download a binary directly** from the [releases page](https://github.com/fossity/probe-cli/releases)
 — one file per platform, `gunzip` and run. Verify it against the published `SHA256SUMS`.
@@ -123,6 +128,9 @@ The package is encrypted to the auditor's public key, so you cannot open it afte
 That directory is how you check what leaves your machine — it is byte for byte what the package
 contains, and a test enforces that. Read `dependencies.json` and `winnowing.wfp` before you send
 anything.
+
+Fingerprints cannot be reversed to the code: they are winnowing hashes, from which the source cannot
+be reconstructed.
 
 Paths inside the package always use forward slashes, whichever platform produced it, so a scan of
 the same tree yields the same record on Windows, macOS and Linux.

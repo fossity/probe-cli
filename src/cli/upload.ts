@@ -22,30 +22,29 @@ function bar(fraction: number, width = 24): string {
 }
 
 /**
- * Asks whether to send the package, spelling out what that means and what the alternative is.
+ * Asks whether to send the package now.
  *
- * Answering no is a first-class outcome: the file is already written, and it can be submitted later
- * from any machine. Nothing leaves this one unless the answer is yes.
+ * Answering no is a first-class outcome: the file is already written and can be submitted later from
+ * any machine, which {@link showSendLater} explains. Nothing leaves this machine unless the answer
+ * is yes.
  */
-export async function confirmUpload(packagePath: string): Promise<boolean> {
-  p.note(
-    [
-      `${pc.bold('Send it now')}   uploads ${path.basename(packagePath)} over HTTPS to ${new URL(brand.uploadApiUrl).host}.`,
-      `              Needs an internet connection from this machine.`,
-      ``,
-      `${pc.bold('Send it later')}  copy the file anywhere and drop it at`,
-      `              ${brand.uploadUrl}`,
-      `              from any machine with a browser. Nothing is uploaded from here.`,
-    ].join('\n'),
-    'Submitting the package',
-  );
-
+export async function confirmUpload(): Promise<boolean> {
   const answer = await p.confirm({
-    message: `Upload ${path.basename(packagePath)} to ${new URL(brand.uploadApiUrl).host} now?`,
+    message: 'Upload your fingerprints now?',
     initialValue: false,
   });
 
   return !p.isCancel(answer) && answer === true;
+}
+
+/** Tells the reader how to submit the package from somewhere else, when they decline or cannot. */
+export function showSendLater(packagePath: string): void {
+  process.stdout.write(`  ${pc.bold('Send it later')}\n`);
+  process.stdout.write(`    copy ${path.basename(packagePath)} anywhere and drop it at\n`);
+  process.stdout.write(`    ${brand.uploadUrl}\n`);
+  process.stdout.write(
+    `    ${pc.dim('from any machine with a browser. Nothing is uploaded from here.')}\n\n`,
+  );
 }
 
 /**

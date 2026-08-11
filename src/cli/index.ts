@@ -11,7 +11,7 @@ import { setVerbose } from '../runtime/log';
 import { ScanRunner, ScanRequest, defaultWorkspaceRoot } from '../core/ScanRunner';
 import { Reporter, printOutcome } from './reporter';
 import { runWizard, wizardOutro } from './wizard';
-import { confirmUpload, runUpload } from './upload';
+import { confirmUpload, runUpload, showSendLater } from './upload';
 import { depsCommand } from './commands/deps';
 import { formatsCommand } from './commands/formats';
 import { buildScanRequest, validateScanRequest, ScanCommandOptions, UsageError } from './scanRequest';
@@ -128,12 +128,14 @@ async function execute(request: ScanRequest, output: OutputOptions): Promise<voi
     }
 
     // Nothing leaves the machine unless this returns true.
-    if (!request.raw && (await wantsUpload(outcome.packagePath, output))) {
+    if (!request.raw && (await wantsUpload(output))) {
       await runUpload(outcome.packagePath);
-    } else if (output.wizard) {
-      wizardOutro(
-        `Read ${path.basename(outcome.reviewPath)} before sending ${path.basename(outcome.packagePath)}.`,
-      );
+    } else {
+      // Declined, or nobody to ask: say how to submit it from somewhere else.
+      if (!request.raw && !output.json && !output.quiet) showSendLater(outcome.packagePath);
+      if (output.wizard) {
+        wizardOutro(`Read ${path.basename(outcome.reviewPath)} before sending it.`);
+      }
     }
   } finally {
     reporter.done();
@@ -144,11 +146,11 @@ async function execute(request: ScanRequest, output: OutputOptions): Promise<voi
  * Whether to upload: `--upload` says yes outright, an interactive run asks, and anything else
  * (piped output, `--json`, `--quiet`, no terminal) declines rather than prompting into the void.
  */
-async function wantsUpload(packagePath: string, output: OutputOptions): Promise<boolean> {
+async function wantsUpload(output: OutputOptions): Promise<boolean> {
   if (output.upload) return true;
   if (output.json || output.quiet) return false;
   if (!process.stdin.isTTY || !process.stdout.isTTY) return false;
-  return confirmUpload(packagePath);
+  return confirmUpload();
 }
 
 /**
