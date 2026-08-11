@@ -5,8 +5,9 @@
 /**
  * Publishes the same build under a short, unscoped name.
  *
- * `npx @fossity/probe-cli@latest scan .` is a mouthful, and the scope cannot be dropped from a
- * scoped package. Publishing the identical bundle as `fossity` gives `npx fossity@latest scan .`.
+ * A scoped package name cannot be abbreviated at the call site, which makes the shortest possible
+ * `npx` invocation long enough to discourage use. Publishing the identical bundle under the short
+ * unscoped name from the brand configuration gives a briefer one.
  *
  * The alias is generated from the real package at publish time rather than maintained beside it, so
  * the two cannot drift: same version, same bundle, same brand configuration. Only the package name
@@ -73,7 +74,7 @@ try {
         bugs: pkg.bugs,
         keywords: pkg.keywords,
         type: pkg.type,
-        // Named after the package: `npx fossity` runs the bin matching the package name.
+        // Named after the package, because npx runs the bin whose name matches it.
         bin: { [aliasName]: `dist/${path.basename(bundle)}` },
         main: `dist/${path.basename(bundle)}`,
         // An allowlist rather than an ignore list: anything not named here cannot be published by
