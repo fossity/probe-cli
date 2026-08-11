@@ -31,7 +31,7 @@ function bar(fraction: number, width = 24): string {
 export async function confirmUpload(): Promise<boolean> {
   const answer = await p.confirm({
     message: 'Upload your fingerprints now?',
-    initialValue: false,
+    initialValue: true,
   });
 
   return !p.isCancel(answer) && answer === true;
@@ -54,7 +54,6 @@ export function showSendLater(packagePath: string): void {
  * the person can retry or submit it through the website.
  */
 export async function runUpload(packagePath: string): Promise<boolean> {
-  const host = new URL(brand.uploadApiUrl).host;
   let lastLine = 0;
 
   const draw = (sent: number, total: number) => {
@@ -65,7 +64,7 @@ export async function runUpload(packagePath: string): Promise<boolean> {
     lastLine = line.replace(/\x1b\[[0-9;]*m/g, '').length; // eslint-disable-line no-control-regex
   };
 
-  process.stdout.write(`\n  Uploading ${path.basename(packagePath)} to ${host}\n`);
+  process.stdout.write(`\n  Uploading ${path.basename(packagePath)}\n`);
 
   try {
     await uploadPackage(packagePath, brand.uploadApiUrl, ({ sent, total }) => draw(sent, total));
