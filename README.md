@@ -45,9 +45,13 @@ irm https://raw.githubusercontent.com/fossity/probe-cli/main/install.ps1 | iex
 **Already have Node 18+?**
 
 ```sh
-npx @fossity/probe-cli scan .        # runs without installing anything
-npm install -g @fossity/probe-cli    # or install it permanently
+npx @fossity/probe-cli@latest scan .        # runs without installing anything
+npm install -g @fossity/probe-cli           # or install it permanently
 ```
+
+Keep the `@latest`. Without a version, `npx` reuses whatever copy it happens to have cached and never
+asks the registry, so an old build can keep running long after a newer one is out. If you have
+already been bitten by that, `rm -rf ~/.npm/_npx` clears it.
 
 **Or download a binary directly** from the [releases page](https://github.com/fossity/probe-cli/releases)
 — one file per platform, `gunzip` and run. Verify it against the published `SHA256SUMS`.
