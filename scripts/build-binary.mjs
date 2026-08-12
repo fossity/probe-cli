@@ -33,22 +33,26 @@ if (major < 20) {
   process.exit(1);
 }
 
-const distDir = path.join(root, 'dist');
 const binDir = path.join(root, 'bin');
+// SEA intermediates are kept out of dist/, which is the directory npm publishes: the config records
+// absolute build paths and the blob duplicates the bundle, and neither belongs in the package.
+const workDir = path.join(root, 'build', 'sea');
 mkdirSync(binDir, { recursive: true });
+mkdirSync(workDir, { recursive: true });
 
 // 1. Bundle.
 const { bundle, OUT_FILE } = await import('./build.mjs');
 await bundle();
 
 // 2. SEA config + blob.
-const seaConfig = path.join(distDir, 'sea-config.json');
+const seaConfig = path.join(workDir, 'sea-config.json');
+const seaBlob = path.join(workDir, 'sea-prep.blob');
 writeFileSync(
   seaConfig,
   JSON.stringify(
     {
       main: OUT_FILE,
-      output: path.join(distDir, 'sea-prep.blob'),
+      output: seaBlob,
       disableExperimentalSEAWarning: true,
       useSnapshot: false,
       useCodeCache: false,
@@ -82,7 +86,7 @@ const postjectArgs = [
   postject,
   outPath,
   'NODE_SEA_BLOB',
-  path.join(distDir, 'sea-prep.blob'),
+  seaBlob,
   '--sentinel-fuse',
   'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2',
 ];

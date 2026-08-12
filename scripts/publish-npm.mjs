@@ -39,6 +39,39 @@ if (!token) {
 }
 
 const pkg = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf-8'));
+
+/**
+ * Refuses to publish a tarball containing anything but the expected files.
+ *
+ * The `files` field lists directories, so whatever a build step happens to leave in one of them
+ * ships too. That is how build intermediates carrying absolute build paths reached the registry
+ * once. Enumerating the tarball is the only check that sees what is actually about to be sent.
+ */
+function assertTarballIsClean() {
+  const listing = JSON.parse(
+    execFileSync('npm', ['pack', '--dry-run', '--json'], { cwd: root, encoding: 'utf-8' }),
+  );
+  const names = listing[0].files.map((f) => f.path).sort();
+  const allowed = new Set([
+    `dist/${path.basename(pkg.bin[Object.keys(pkg.bin)[0]])}`,
+    'brand.config.json',
+    'package.json',
+    'README.md',
+    'LICENSE',
+    'NOTICE',
+  ]);
+  const unexpected = names.filter((n) => !allowed.has(n));
+  if (unexpected.length) {
+    console.error('Refusing to publish: the tarball contains files that are not part of the package.');
+    unexpected.forEach((n) => console.error(`  ${n}`));
+    console.error('Remove them from dist/ (or widen the allowlist in this script) and try again.');
+    process.exit(1);
+  }
+  console.log(`tarball contents checked: ${names.length} files, all expected`);
+}
+
+assertTarballIsClean();
+
 const tmp = mkdtempSync(path.join(os.tmpdir(), 'npm-publish-'));
 const npmrc = path.join(tmp, '.npmrc');
 
